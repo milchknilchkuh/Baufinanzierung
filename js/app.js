@@ -177,7 +177,7 @@
     document.getElementById("summary-cards").innerHTML = cards.map(([label, value, primary]) => `<div class="metric${primary ? " primary" : ""}"><span>${label}</span><strong>${value}</strong></div>`).join("");
     document.getElementById("milestone-rows").innerHTML = [5, 10, 15, 20].map((year) => `<tr><td>Nach ${year} Jahren</td><td>${money(result.milestones[year])}</td></tr>`).join("");
     document.getElementById("schedule-rows").innerHTML = result.schedule.map((row) => `<tr><td>${row.year}</td><td>${money(row.remainingDebt)}</td><td>${money(row.principalPaid)}</td></tr>`).join("") || '<tr><td colspan="3">Kein Darlehen</td></tr>';
-    renderCharts(result, values.loanAmount);
+    renderCharts(result, values.loanAmount, values.rateChanges);
   }
   function renderAdjustmentDerivedValues(result) {
     [1, 2].forEach((index) => {
@@ -192,17 +192,23 @@
       document.getElementById(`adjustment${index}-derived-value`).textContent = value == null ? "–" : mode === "payment" ? percentText(value) : money(value);
     });
   }
-  function renderCharts(result, loanAmount) {
+  function renderCharts(result, loanAmount, rateChanges) {
     if (!loanAmount || !result.schedule.length) {
       document.getElementById("balance-chart").innerHTML = '<p class="chart-empty">Kein Darlehensverlauf vorhanden.</p>';
       document.getElementById("repayment-chart").innerHTML = '<p class="chart-empty">Kein Tilgungsverlauf vorhanden.</p>';
       return;
     }
     const history = [{ month: 0, remainingDebt: loanAmount, principalPaid: 0 }, ...result.schedule];
-    renderLineChart("balance-chart", history, loanAmount, "remainingDebt", "Restschuld", "#16796f");
-    renderLineChart("repayment-chart", history, loanAmount, "principalPaid", "Getilgter Betrag", "#3979a8");
+    const annotations = [];
+    if (result.months >= 120) annotations.push({ month: 120, label: "10 Jahre", type: "ten-year" });
+    (result.adjustmentResults || []).forEach((adjustment) => {
+      const index = rateChanges.findIndex((item) => item.afterMonths === adjustment.afterMonths);
+      annotations.push({ month: adjustment.afterMonths, label: `Anp. ${Math.max(1, index + 1)}`, type: "adjustment" });
+    });
+    renderLineChart("balance-chart", history, loanAmount, "remainingDebt", "Restschuld", "#16796f", annotations);
+    renderLineChart("repayment-chart", history, loanAmount, "principalPaid", "Getilgter Betrag", "#3979a8", annotations);
   }
-  function renderLineChart(containerId, history, maxValue, valueKey, seriesName, color) {
+  function renderLineChart(containerId, history, maxValue, valueKey, seriesName, color, annotations) {
     const width = 640;
     const height = 250;
     const left = 68;
@@ -222,9 +228,21 @@
       const label = index === 0 ? "0" : index === yearLabels.length - 1 ? formatDuration(maxMonth) : `${Math.round(month / 12)} J.`;
       return `<g><line x1="${x(month)}" y1="${top}" x2="${x(month)}" y2="${height - bottom}" class="chart-gridline chart-gridline-vertical"/><text x="${x(month)}" y="${height - 12}" text-anchor="${index === 0 ? "start" : index === yearLabels.length - 1 ? "end" : "middle"}" class="chart-axis-label">${label}</text></g>`;
     }).join("");
+    const visibleAnnotations = annotations.filter((annotation) => annotation.month > 0 && annotation.month <= maxMonth);
+    const annotationLines = visibleAnnotations.map((annotation, index) => {
+      const position = x(annotation.month);
+      const anchor = position > width - 130 ? "end" : "start";
+      const labelX = anchor === "end" ? position - 4 : position + 4;
+      const labelY = top + 12 + index % 4 * 14;
+      return `<g class="chart-annotation ${annotation.type}"><line x1="${position}" y1="${top}" x2="${position}" y2="${height - bottom}"/><text x="${labelX}" y="${labelY}" text-anchor="${anchor}">${annotation.label}</text></g>`;
+    }).join("");
     const dots = history.map((item) => `<circle class="chart-point" cx="${x(item.month)}" cy="${y(item[valueKey])}" r="5" fill="${color}" tabindex="0" aria-label="${seriesName}, ${formatDuration(item.month)}: ${money(item[valueKey])}" data-month="${item.month}" data-value="${item[valueKey]}"/>`).join("");
     const container = document.getElementById(containerId);
-    container.innerHTML = `<svg class="line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${seriesName} im Zeitverlauf">${yGrid}${xGrid}<polyline points="${points}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${dots}</svg><div class="chart-tooltip" role="tooltip" hidden></div><div class="chart-legend"><span style="--legend-color:${color}"></span>${seriesName}</div>`;
+    const annotationLegend = [
+      visibleAnnotations.some((annotation) => annotation.type === "ten-year") ? '<span class="chart-reference-key"></span>10 Jahre' : "",
+      visibleAnnotations.some((annotation) => annotation.type === "adjustment") ? '<span class="chart-adjustment-key"></span>Anpassung' : ""
+    ].filter(Boolean).join("&nbsp;&nbsp;");
+    container.innerHTML = `<svg class="line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${seriesName} im Zeitverlauf">${yGrid}${xGrid}<polyline points="${points}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${annotationLines}${dots}</svg><div class="chart-tooltip" role="tooltip" hidden></div><div class="chart-legend"><span style="--legend-color:${color}"></span>${seriesName}${annotationLegend}</div>`;
     const tooltip = container.querySelector(".chart-tooltip");
     const showTooltip = (point) => {
       tooltip.textContent = `${seriesName} · ${formatDuration(Number(point.dataset.month))} · ${money(Number(point.dataset.value))}`;
