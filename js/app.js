@@ -452,9 +452,13 @@
     saveCurrentState();
   });
   document.getElementById("reset-defaults").addEventListener("click", () => {
-    if (!window.confirm("Möchtest du wirklich alle aktuellen Eingaben auf die Standardwerte zurücksetzen?")) return;
+    if (!window.confirm("Möchtest du wirklich alle aktuellen Eingaben auf die Standardwerte zurücksetzen und alle gespeicherten Szenarien löschen?")) return;
     form.reset();
     document.getElementById("scenario-name").value = "Szenario 1";
+    scenarios = [];
+    try { localStorage.removeItem(storageKey); }
+    catch {}
+    renderScenarios();
     [1, 2].forEach((index) => { field(`adjustment${index}Unit`).dataset.previousUnit = field(`adjustment${index}Unit`).value; });
     updateLoanFromCosts();
     resultView = "chart";
@@ -467,7 +471,7 @@
     });
     render();
     saveCurrentState();
-    document.getElementById("scenario-status").textContent = "Die Eingaben wurden auf die Standardwerte zurückgesetzt.";
+    document.getElementById("scenario-status").textContent = "Standardwerte wiederhergestellt; gespeicherte Szenarien gelöscht.";
   });
   document.querySelector(".view-switch").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-result-view]");
