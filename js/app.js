@@ -284,9 +284,14 @@
       ["Sollzinssatz", (item) => percentText(item.inputs.annualInterestRate)],
       ["Anfangstilgung", (item) => item.inputs.paymentMode === "amortization" ? `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag">Vorgabe</span>` : `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag mode-tag-derived">Berechnet</span>`],
       ["Monatliche Rate", (item) => item.inputs.paymentMode === "payment" ? `${money(item.inputs.monthlyPayment)} <span class="mode-tag">Vorgabe</span>` : `${money(item.inputs.loanAmount * (item.inputs.annualInterestRate + item.inputs.initialAmortizationRate) / 1200)} <span class="mode-tag mode-tag-derived">Berechnet</span>`],
-      ["Jährliche Sondertilgung", (item) => money(item.inputs.annualExtra)],
-      ["Finanzierungsanpassungen", (item) => formatRateChanges(item.inputs.rateChanges), "adjustments-cell"]
+      ["Jährliche Sondertilgung", (item) => money(item.inputs.annualExtra)]
     ];
+    const adjustmentCount = Math.max(0, ...comparedScenarios.map((item) => Array.isArray(item.inputs.rateChanges) ? item.inputs.rateChanges.length : 0));
+    const adjustmentRows = Array.from({ length: adjustmentCount }, (_, index) => [
+      `Anpassung ${index + 1}`,
+      (item) => formatScenarioAdjustment(item.inputs.rateChanges[index]),
+      "adjustment-cell"
+    ]);
     const outputRows = [
       ["Restschuld nach 10 Jahren", (item) => item.result.error ? "–" : money(item.result.milestones[10])],
       ["Gezahlte Zinsen nach 10 Jahren", (item) => item.result.error ? "–" : money(item.result.interestMilestones[10])],
@@ -295,7 +300,11 @@
       ["Gesamte Rückzahlung", (item) => item.result.error ? "–" : `${money(item.result.totalPaid)} <span class="duration-note">nach ${formatDuration(item.result.months)}</span>`]
     ];
     const renderRows = (rows) => rows.map(([label, value, cellClass = ""]) => `<tr><td>${label}</td>${comparedScenarios.map((item) => `<td class="${cellClass}">${value(item)}</td>`).join("")}</tr>`).join("");
-    document.getElementById("comparison-body").innerHTML = `<tr class="comparison-section-row"><th colspan="${comparedScenarios.length + 1}">Eingaben</th></tr>${renderRows(inputRows)}<tr class="comparison-section-row"><th colspan="${comparedScenarios.length + 1}">Ergebnisse</th></tr>${renderRows(outputRows)}`;
+    const columnCount = comparedScenarios.length + 1;
+    const adjustmentSection = adjustmentRows.length
+      ? `<tr class="comparison-subsection-row"><th colspan="${columnCount}">Anpassungen während der Laufzeit</th></tr>${renderRows(adjustmentRows)}`
+      : "";
+    document.getElementById("comparison-body").innerHTML = `<tr class="comparison-section-row"><th colspan="${columnCount}">Eingaben</th></tr>${renderRows(inputRows)}${adjustmentSection}<tr class="comparison-section-row"><th colspan="${columnCount}">Ergebnisse</th></tr>${renderRows(outputRows)}`;
     document.getElementById("scenario-list").innerHTML = scenarios.map((item, index) => `<div class="scenario-item"><strong>${escapeHtml(item.name)}</strong><div class="scenario-buttons"><button type="button" class="button button-small" data-action="load" data-index="${index}">Laden</button><button type="button" class="button button-small" data-action="duplicate" data-index="${index}">Duplizieren</button><button type="button" class="button button-small" data-action="delete" data-index="${index}">Löschen</button></div></div>`).join("");
   }
   function formatDuration(months) {
@@ -304,17 +313,14 @@
     const remainingMonths = months % 12;
     return [years ? `${years} Jahr${years === 1 ? "" : "e"}` : "", remainingMonths ? `${remainingMonths} Monat${remainingMonths === 1 ? "" : "e"}` : ""].filter(Boolean).join(" ");
   }
-  function formatRateChanges(changes) {
-    if (!Array.isArray(changes) || changes.length === 0) return "Keine";
-    const summaries = changes.map((change) => {
-      const values = [];
-      if (change.annualInterestRate !== null) values.push(`<span class="adjustment-chip">Sollzins ${percentText(change.annualInterestRate)}</span>`);
-      if (change.monthlyPayment !== null) values.push(`<span class="adjustment-chip">Rate ${money(change.monthlyPayment)}</span>`);
-      if (change.annualExtra != null) values.push(`<span class="adjustment-chip">Sondertilgung ${money(change.annualExtra)}/Jahr</span>`);
-      const period = change.afterMonths % 12 === 0 ? `${change.afterMonths / 12} Jahr${change.afterMonths / 12 === 1 ? "" : "e"}` : `${change.afterMonths} Monate`;
-      return `<div class="adjustment-summary"><strong>Nach ${period}</strong><div class="adjustment-values">${values.join("")}</div></div>`;
-    });
-    return `<div class="scenario-adjustments">${summaries.join("")}</div>`;
+  function formatScenarioAdjustment(change) {
+    if (!change) return "Keine Anpassung";
+    const values = [
+      change.annualInterestRate == null ? "Sollzins unverändert" : `Sollzins ${percentText(change.annualInterestRate)}`,
+      change.monthlyPayment == null ? "Rate unverändert" : `Rate ${money(change.monthlyPayment)}`,
+      change.annualExtra == null ? "Sondertilgung unverändert" : `Sondertilgung ${money(change.annualExtra)}/Jahr`
+    ];
+    return `<div class="adjustment-compact"><strong>Nach ${formatDuration(change.afterMonths)}</strong><span>${values.join(" · ")}</span></div>`;
   }
   function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
   function applyInputs(inputs) {
