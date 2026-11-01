@@ -51,7 +51,7 @@
       constructionCost: readNumber("constructionCost"), ancillaryMode: field("ancillaryMode").value, ancillaryValue: readNumber("ancillaryValue"),
       otherCost: readNumber("otherCost"), totalCostInput: readNumber("totalCostInput"), equity: readNumber("equity"), loanAmount: readNumber("loanAmount"),
       annualInterestRate: readNumber("annualInterestRate"), initialAmortizationRate: readNumber("initialAmortizationRate"),
-      monthlyPayment: readNumber("monthlyPaymentInput"), paymentMode: selected("paymentMode"), monthlyExtra: readNumber("monthlyExtra"), annualExtra: readNumber("annualExtra")
+      monthlyPayment: readNumber("monthlyPaymentInput"), paymentMode: selected("paymentMode"), annualExtra: readNumber("annualExtra")
     };
   }
   function render() {
@@ -66,6 +66,7 @@
     showError("");
     const totalCost = getTotalCost();
     document.getElementById("total-cost-display").textContent = money(totalCost);
+    document.getElementById("loan-amount-display").textContent = money(readNumber("loanAmount"));
     const values = collectInputs();
     const result = FinanceCalculations.calculateLoan(values);
     currentResult = result;
@@ -99,8 +100,17 @@
     document.getElementById("schedule-rows").innerHTML = result.schedule.map((row) => `<tr><td>${row.year}</td><td>${money(row.remainingDebt)}</td><td>${money(row.principalPaid)}</td></tr>`).join("") || '<tr><td colspan="3">Kein Darlehen</td></tr>';
   }
   function loadScenarios() {
-    try { const stored = JSON.parse(localStorage.getItem(storageKey) || "[]"); return Array.isArray(stored) ? stored : []; }
+    try {
+      const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      return Array.isArray(stored) ? stored.map((item) => ({ ...item, inputs: withoutMonthlyExtra(item.inputs) })) : [];
+    }
     catch { return []; }
+  }
+  function withoutMonthlyExtra(inputs) {
+    if (!inputs || typeof inputs !== "object") return inputs;
+    const normalized = { ...inputs };
+    delete normalized.monthlyExtra;
+    return normalized;
   }
   function persistScenarios() {
     try { localStorage.setItem(storageKey, JSON.stringify(scenarios)); return true; }
@@ -110,20 +120,22 @@
   function renderScenarios() {
     const comparedScenarios = scenarios.map((item) => ({ ...item, result: scenarioResult(item.inputs) }));
     document.getElementById("comparison-head").innerHTML = `<tr><th>Vergleich</th>${comparedScenarios.map((item) => `<th>${escapeHtml(item.name)}</th>`).join("")}</tr>`;
-    const rows = [
-      ["Sollzinssatz", (item) => percentText(item.inputs.annualInterestRate)],
-      ["Anfangstilgung", (item) => percentText(item.inputs.initialAmortizationRate)],
-      ["Monatliche Rate", (item) => item.result.error ? "Nicht tragfähig" : money(item.result.monthlyPayment)],
-      ["Zusätzliche monatliche Tilgung", (item) => money(item.inputs.monthlyExtra)],
-      ["Jährliche Sondertilgung", (item) => money(item.inputs.annualExtra)],
+    const inputRows = [
       ["Darlehensbetrag", (item) => money(item.inputs.loanAmount)],
+      ["Sollzinssatz", (item) => percentText(item.inputs.annualInterestRate)],
+      ["Anfangstilgung", (item) => item.inputs.paymentMode === "amortization" ? `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag">Vorgabe</span>` : `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag mode-tag-derived">Berechnet</span>`],
+      ["Monatliche Rate", (item) => item.inputs.paymentMode === "payment" ? `${money(item.inputs.monthlyPayment)} <span class="mode-tag">Vorgabe</span>` : `${money(item.inputs.loanAmount * (item.inputs.annualInterestRate + item.inputs.initialAmortizationRate) / 1200)} <span class="mode-tag mode-tag-derived">Berechnet</span>`],
+      ["Jährliche Sondertilgung", (item) => money(item.inputs.annualExtra)]
+    ];
+    const outputRows = [
       ["Restschuld nach 10 Jahren", (item) => item.result.error ? "–" : money(item.result.milestones[10])],
       ["Gezahlte Zinsen nach 10 Jahren", (item) => item.result.error ? "–" : money(item.result.interestMilestones[10])],
       ["Gesamte Laufzeit", (item) => item.result.error ? "Nicht berechenbar" : formatDuration(item.result.months)],
-      ["Gesamtzinsen nach N Jahren (N = Laufzeit)", (item) => item.result.error ? "–" : money(item.result.totalInterest)],
-      ["Gesamte Rückzahlung nach N Jahren (N = Laufzeit)", (item) => item.result.error ? "–" : money(item.result.totalPaid)]
+      ["Gesamtzinsen", (item) => item.result.error ? "–" : `${money(item.result.totalInterest)} <span class="duration-note">nach ${formatDuration(item.result.months)}</span>`],
+      ["Gesamte Rückzahlung", (item) => item.result.error ? "–" : `${money(item.result.totalPaid)} <span class="duration-note">nach ${formatDuration(item.result.months)}</span>`]
     ];
-    document.getElementById("comparison-body").innerHTML = rows.map(([label, value]) => `<tr><td>${label}</td>${comparedScenarios.map((item) => `<td>${value(item)}</td>`).join("")}</tr>`).join("");
+    const renderRows = (rows) => rows.map(([label, value]) => `<tr><td>${label}</td>${comparedScenarios.map((item) => `<td>${value(item)}</td>`).join("")}</tr>`).join("");
+    document.getElementById("comparison-body").innerHTML = `<tr class="comparison-section-row"><th colspan="${comparedScenarios.length + 1}">Eingaben</th></tr>${renderRows(inputRows)}<tr class="comparison-section-row"><th colspan="${comparedScenarios.length + 1}">Ergebnisse</th></tr>${renderRows(outputRows)}`;
     document.getElementById("scenario-list").innerHTML = scenarios.map((item, index) => `<div class="scenario-item"><strong>${escapeHtml(item.name)}</strong><div class="scenario-buttons"><button type="button" class="button button-small" data-action="load" data-index="${index}">Laden</button><button type="button" class="button button-small" data-action="duplicate" data-index="${index}">Duplizieren</button><button type="button" class="button button-small" data-action="delete" data-index="${index}">Löschen</button></div></div>`).join("");
   }
   function formatDuration(months) {
@@ -134,7 +146,7 @@
   }
   function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
   function applyInputs(inputs) {
-    ["purchasePrice", "landCost", "constructionCost", "ancillaryValue", "otherCost", "totalCostInput", "equity", "loanAmount", "annualInterestRate", "initialAmortizationRate", "monthlyPaymentInput", "monthlyExtra", "annualExtra"].forEach((name) => setValue(name, inputs[name]));
+    ["purchasePrice", "landCost", "constructionCost", "ancillaryValue", "otherCost", "totalCostInput", "equity", "loanAmount", "annualInterestRate", "initialAmortizationRate", "monthlyPaymentInput", "annualExtra"].forEach((name) => setValue(name, inputs[name]));
     field("ancillaryMode").value = inputs.ancillaryMode;
     form.querySelector(`input[name="costMode"][value="${inputs.costMode}"]`).checked = true;
     form.querySelector(`input[name="paymentMode"][value="${inputs.paymentMode}"]`).checked = true;
@@ -216,10 +228,10 @@
       }
       const importedScenarios = project.scenarios.map((item) => {
         if (!item || typeof item.name !== "string" || !isValidProjectInputs(item.inputs)) throw new Error("Mindestens ein gespeichertes Szenario ist ungültig.");
-        const inputs = item.inputs;
+        const inputs = withoutMonthlyExtra(item.inputs);
         return { name: item.name.slice(0, 60), inputs, result: FinanceCalculations.calculateLoan(inputs) };
       });
-      applyInputs(project.inputs);
+      applyInputs(withoutMonthlyExtra(project.inputs));
       scenarios = importedScenarios;
       persistScenarios();
       renderScenarios();
@@ -234,7 +246,7 @@
 
   function isValidProjectInputs(inputs) {
     if (!inputs || !["items", "total"].includes(inputs.costMode) || !["amortization", "payment"].includes(inputs.paymentMode) || !["percent", "amount"].includes(inputs.ancillaryMode)) return false;
-    const numberNames = ["purchasePrice", "landCost", "constructionCost", "ancillaryValue", "otherCost", "totalCostInput", "equity", "loanAmount", "annualInterestRate", "initialAmortizationRate", "monthlyPayment", "monthlyExtra", "annualExtra"];
+    const numberNames = ["purchasePrice", "landCost", "constructionCost", "ancillaryValue", "otherCost", "totalCostInput", "equity", "loanAmount", "annualInterestRate", "initialAmortizationRate", "monthlyPayment", "annualExtra"];
     return numberNames.every((name) => Number.isFinite(inputs[name]) && inputs[name] >= 0) && inputs.annualInterestRate <= 100 && inputs.initialAmortizationRate <= 100;
   }
 
