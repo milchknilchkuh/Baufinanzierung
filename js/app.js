@@ -357,6 +357,8 @@
     const comparedScenarios = scenarios.map((item) => ({ ...item, result: scenarioResult(item.inputs) }));
     document.getElementById("comparison-head").innerHTML = `<tr><th>Vergleich</th>${comparedScenarios.map((item) => `<th>${escapeHtml(item.name)}</th>`).join("")}</tr>`;
     const inputRows = [
+      ["Gesamtkosten", (item) => money(getScenarioTotalCost(item.inputs))],
+      ["Eigenkapital", (item) => money(item.inputs.equity)],
       ["Darlehensbetrag", (item) => money(item.inputs.loanAmount)],
       ["Sollzinssatz", (item) => percentText(item.inputs.annualInterestRate)],
       ["Anfangstilgung", (item) => item.inputs.paymentMode === "amortization" ? `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag">Vorgabe</span>` : `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag mode-tag-derived">Berechnet</span>`],
@@ -393,6 +395,11 @@
     const years = Math.floor(months / 12);
     const remainingMonths = months % 12;
     return [years ? `${years} Jahr${years === 1 ? "" : "e"}` : "", remainingMonths ? `${remainingMonths} Monat${remainingMonths === 1 ? "" : "e"}` : ""].filter(Boolean).join(" ");
+  }
+  function getScenarioTotalCost(inputs) {
+    if (inputs.costMode === "total") return inputs.totalCostInput;
+    const ancillaryCost = inputs.ancillaryValue * (inputs.ancillaryMode === "percent" ? inputs.purchasePrice / 100 : 1);
+    return inputs.purchasePrice + inputs.landCost + inputs.constructionCost + ancillaryCost + inputs.otherCost;
   }
   function formatScenarioAdjustment(change, calculated) {
     if (!change) return "Keine Anpassung";
