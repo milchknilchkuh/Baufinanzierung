@@ -27,7 +27,7 @@ body { margin: 0; line-height: 1.45; }
   box-shadow: 0 2px 8px #17394a0a;
 }
 .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--navy); font-weight: 750; text-decoration: none; white-space: nowrap; }
-.brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; color: #fff; background: var(--teal); font-size: .85rem; }
+.brand-icon { display: block; flex: none; width: 28px; height: 28px; object-fit: contain; }
 .mobile-label { display: none; }
 .topbar-caption { color: var(--muted); font-size: .82rem; }
 .project-actions { display: flex; gap: 8px; margin-left: auto; }
@@ -146,7 +146,7 @@ td:last-child, th:last-child { text-align: right; }
   .desktop-label { display: none; }
   .mobile-label { display: inline; }
   .brand { font-size: .88rem; }
-  .brand-mark { width: 26px; height: 26px; }
+  .brand-icon { width: 26px; height: 26px; }
   .project-actions { gap: 5px; }
   .button { padding: 7px 8px; font-size: .75rem; }
   .page-shell { width: min(100% - 20px, 1440px); padding-top: 10px; }
