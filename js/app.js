@@ -29,10 +29,37 @@
     const numeric = Array.from(form.querySelectorAll('input[type="number"]'));
     for (const input of numeric) {
       if (input.closest("[hidden]") || input.name === "monthlyPaymentInput" && selected("paymentMode") !== "payment" || input.name === "initialAmortizationRate" && selected("paymentMode") !== "amortization") continue;
+      if (input.dataset.optional === "true" && input.value.trim() === "") continue;
       const value = input.value.trim() === "" ? NaN : Number(input.value);
       if (!Number.isFinite(value) || value < 0 || input.max && value > Number(input.max)) {
         showError(`„${input.closest("label").querySelector("span").textContent}“ muss eine gültige, nicht negative Zahl sein.`);
         input.focus();
+        return false;
+      }
+    }
+    const usedMonths = new Set();
+    for (const index of [1, 2]) {
+      if (!field(`adjustment${index}Enabled`).checked) continue;
+      const period = Number(field(`adjustment${index}After`).value);
+      const unit = field(`adjustment${index}Unit`).value;
+      const afterMonths = period * (unit === "years" ? 12 : 1);
+      const rateValue = field(`adjustment${index}AnnualRate`).value.trim();
+      const paymentValue = field(`adjustment${index}Payment`).value.trim();
+      const extraValue = field(`adjustment${index}AnnualExtra`).value.trim();
+      if (!Number.isInteger(period) || period < 1 || !["months", "years"].includes(unit) || !Number.isInteger(afterMonths) || afterMonths > 1199) {
+        showError(`Bitte gib für Anpassung ${index} eine gültige Dauer von mindestens einem Monat und höchstens 99 Jahren an.`);
+        field(`adjustment${index}After`).focus();
+        return false;
+      }
+      if (usedMonths.has(afterMonths)) {
+        showError("Die beiden Anpassungen müssen zu unterschiedlichen Zeitpunkten erfolgen.");
+        field(`adjustment${index}After`).focus();
+        return false;
+      }
+      usedMonths.add(afterMonths);
+      if (!extraValue) {
+        showError(`Die jährliche Sondertilgung für Anpassung ${index} ist ein Pflichtfeld. Gib 0 ein, wenn sie entfallen soll.`);
+        field(`adjustment${index}AnnualExtra`).focus();
         return false;
       }
     }
@@ -54,8 +81,16 @@
       constructionCost: readNumber("constructionCost"), ancillaryMode: field("ancillaryMode").value, ancillaryValue: readNumber("ancillaryValue"),
       otherCost: readNumber("otherCost"), totalCostInput: readNumber("totalCostInput"), equity: readNumber("equity"), loanAmount: readNumber("loanAmount"),
       annualInterestRate: readNumber("annualInterestRate"), initialAmortizationRate: readNumber("initialAmortizationRate"),
-      monthlyPayment: readNumber("monthlyPaymentInput"), paymentMode: selected("paymentMode"), annualExtra: readNumber("annualExtra")
+      monthlyPayment: readNumber("monthlyPaymentInput"), paymentMode: selected("paymentMode"), annualExtra: readNumber("annualExtra"), rateChanges: collectRateChanges()
     };
+  }
+  function collectRateChanges() {
+    return [1, 2].filter((index) => field(`adjustment${index}Enabled`).checked).map((index) => ({
+      afterMonths: Number(field(`adjustment${index}After`).value) * (field(`adjustment${index}Unit`).value === "years" ? 12 : 1),
+      annualInterestRate: field(`adjustment${index}AnnualRate`).value.trim() === "" ? null : Number(field(`adjustment${index}AnnualRate`).value),
+      monthlyPayment: field(`adjustment${index}Payment`).value.trim() === "" ? null : Number(field(`adjustment${index}Payment`).value),
+      annualExtra: field(`adjustment${index}AnnualExtra`).value.trim() === "" ? null : Number(field(`adjustment${index}AnnualExtra`).value)
+    }));
   }
   function render() {
     const mode = selected("costMode");
@@ -65,6 +100,12 @@
     const paymentMode = selected("paymentMode");
     document.getElementById("amortization-field").hidden = paymentMode !== "amortization";
     document.getElementById("payment-field").hidden = paymentMode !== "payment";
+    [1, 2].forEach((index) => {
+      document.getElementById(`adjustment${index}-fields`).hidden = !field(`adjustment${index}Enabled`).checked;
+      const unitField = field(`adjustment${index}Unit`);
+      if (!unitField.dataset.previousUnit) unitField.dataset.previousUnit = unitField.value;
+      field(`adjustment${index}After`).max = unitField.value === "years" ? "99" : "1199";
+    });
     if (!inputsAreValid()) return;
     showError("");
     const totalCost = getTotalCost();
@@ -161,7 +202,8 @@
       if (!element.name) return;
       if (element.type === "radio") {
         if (element.checked) fields[element.name] = element.value;
-      } else fields[element.name] = element.value;
+      } else if (element.type === "checkbox") fields[element.name] = element.checked;
+      else fields[element.name] = element.value;
     });
     return { fields, scenarioName: document.getElementById("scenario-name").value };
   }
@@ -191,10 +233,24 @@
       Array.from(form.elements).forEach((element) => {
         if (!element.name) return;
         const savedValue = state.fields[element.name];
+        if (element.type === "checkbox") {
+          if (typeof savedValue === "boolean") element.checked = savedValue;
+          return;
+        }
         if (typeof savedValue !== "string") return;
         if (element.type === "radio") {
           if (radioOptions[element.name]?.includes(savedValue)) element.checked = element.value === savedValue;
         } else element.value = savedValue;
+      });
+      [1, 2].forEach((index) => {
+        const legacyMonths = state.fields[`adjustment${index}AfterMonths`];
+        if (state.fields[`adjustment${index}After`] === undefined && typeof legacyMonths === "string") {
+          field(`adjustment${index}After`).value = legacyMonths;
+          field(`adjustment${index}Unit`).value = "months";
+        }
+        if (field(`adjustment${index}Enabled`).checked && field(`adjustment${index}AnnualExtra`).value.trim() === "") {
+          field(`adjustment${index}AnnualExtra`).value = "0";
+        }
       });
       if (typeof state.scenarioName === "string") document.getElementById("scenario-name").value = state.scenarioName.slice(0, 60);
     } catch {}
@@ -202,14 +258,17 @@
   function loadScenarios() {
     try {
       const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
-      return Array.isArray(stored) ? stored.map((item) => ({ ...item, inputs: withoutMonthlyExtra(item.inputs) })) : [];
+      return Array.isArray(stored) ? stored.map((item) => ({ ...item, inputs: normalizeSavedInputs(item.inputs) })) : [];
     }
     catch { return []; }
   }
-  function withoutMonthlyExtra(inputs) {
+  function normalizeSavedInputs(inputs) {
     if (!inputs || typeof inputs !== "object") return inputs;
     const normalized = { ...inputs };
     delete normalized.monthlyExtra;
+    if (Array.isArray(normalized.rateChanges)) {
+      normalized.rateChanges = normalized.rateChanges.map((change) => ({ ...change, annualExtra: change.annualExtra ?? 0 }));
+    }
     return normalized;
   }
   function persistScenarios() {
@@ -225,7 +284,8 @@
       ["Sollzinssatz", (item) => percentText(item.inputs.annualInterestRate)],
       ["Anfangstilgung", (item) => item.inputs.paymentMode === "amortization" ? `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag">Vorgabe</span>` : `${percentText(item.inputs.initialAmortizationRate)} <span class="mode-tag mode-tag-derived">Berechnet</span>`],
       ["Monatliche Rate", (item) => item.inputs.paymentMode === "payment" ? `${money(item.inputs.monthlyPayment)} <span class="mode-tag">Vorgabe</span>` : `${money(item.inputs.loanAmount * (item.inputs.annualInterestRate + item.inputs.initialAmortizationRate) / 1200)} <span class="mode-tag mode-tag-derived">Berechnet</span>`],
-      ["Jährliche Sondertilgung", (item) => money(item.inputs.annualExtra)]
+      ["Jährliche Sondertilgung", (item) => money(item.inputs.annualExtra)],
+      ["Finanzierungsanpassungen", (item) => formatRateChanges(item.inputs.rateChanges), "adjustments-cell"]
     ];
     const outputRows = [
       ["Restschuld nach 10 Jahren", (item) => item.result.error ? "–" : money(item.result.milestones[10])],
@@ -234,7 +294,7 @@
       ["Gesamtzinsen", (item) => item.result.error ? "–" : `${money(item.result.totalInterest)} <span class="duration-note">nach ${formatDuration(item.result.months)}</span>`],
       ["Gesamte Rückzahlung", (item) => item.result.error ? "–" : `${money(item.result.totalPaid)} <span class="duration-note">nach ${formatDuration(item.result.months)}</span>`]
     ];
-    const renderRows = (rows) => rows.map(([label, value]) => `<tr><td>${label}</td>${comparedScenarios.map((item) => `<td>${value(item)}</td>`).join("")}</tr>`).join("");
+    const renderRows = (rows) => rows.map(([label, value, cellClass = ""]) => `<tr><td>${label}</td>${comparedScenarios.map((item) => `<td class="${cellClass}">${value(item)}</td>`).join("")}</tr>`).join("");
     document.getElementById("comparison-body").innerHTML = `<tr class="comparison-section-row"><th colspan="${comparedScenarios.length + 1}">Eingaben</th></tr>${renderRows(inputRows)}<tr class="comparison-section-row"><th colspan="${comparedScenarios.length + 1}">Ergebnisse</th></tr>${renderRows(outputRows)}`;
     document.getElementById("scenario-list").innerHTML = scenarios.map((item, index) => `<div class="scenario-item"><strong>${escapeHtml(item.name)}</strong><div class="scenario-buttons"><button type="button" class="button button-small" data-action="load" data-index="${index}">Laden</button><button type="button" class="button button-small" data-action="duplicate" data-index="${index}">Duplizieren</button><button type="button" class="button button-small" data-action="delete" data-index="${index}">Löschen</button></div></div>`).join("");
   }
@@ -244,12 +304,35 @@
     const remainingMonths = months % 12;
     return [years ? `${years} Jahr${years === 1 ? "" : "e"}` : "", remainingMonths ? `${remainingMonths} Monat${remainingMonths === 1 ? "" : "e"}` : ""].filter(Boolean).join(" ");
   }
+  function formatRateChanges(changes) {
+    if (!Array.isArray(changes) || changes.length === 0) return "Keine";
+    const summaries = changes.map((change) => {
+      const values = [];
+      if (change.annualInterestRate !== null) values.push(`<span class="adjustment-chip">Sollzins ${percentText(change.annualInterestRate)}</span>`);
+      if (change.monthlyPayment !== null) values.push(`<span class="adjustment-chip">Rate ${money(change.monthlyPayment)}</span>`);
+      if (change.annualExtra != null) values.push(`<span class="adjustment-chip">Sondertilgung ${money(change.annualExtra)}/Jahr</span>`);
+      const period = change.afterMonths % 12 === 0 ? `${change.afterMonths / 12} Jahr${change.afterMonths / 12 === 1 ? "" : "e"}` : `${change.afterMonths} Monate`;
+      return `<div class="adjustment-summary"><strong>Nach ${period}</strong><div class="adjustment-values">${values.join("")}</div></div>`;
+    });
+    return `<div class="scenario-adjustments">${summaries.join("")}</div>`;
+  }
   function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
   function applyInputs(inputs) {
     ["purchasePrice", "landCost", "constructionCost", "ancillaryValue", "otherCost", "totalCostInput", "equity", "loanAmount", "annualInterestRate", "initialAmortizationRate", "monthlyPaymentInput", "annualExtra"].forEach((name) => setValue(name, inputs[name]));
     field("ancillaryMode").value = inputs.ancillaryMode;
     form.querySelector(`input[name="costMode"][value="${inputs.costMode}"]`).checked = true;
     form.querySelector(`input[name="paymentMode"][value="${inputs.paymentMode}"]`).checked = true;
+    [1, 2].forEach((index) => {
+      const change = Array.isArray(inputs.rateChanges) ? inputs.rateChanges[index - 1] : null;
+      field(`adjustment${index}Enabled`).checked = Boolean(change);
+      const useYears = change ? change.afterMonths % 12 === 0 && change.afterMonths / 12 <= 99 : true;
+      field(`adjustment${index}Unit`).value = useYears ? "years" : "months";
+      field(`adjustment${index}Unit`).dataset.previousUnit = field(`adjustment${index}Unit`).value;
+      field(`adjustment${index}After`).value = change ? String(useYears ? change.afterMonths / 12 : change.afterMonths) : String(index * 10);
+      field(`adjustment${index}AnnualRate`).value = change && change.annualInterestRate !== null ? String(change.annualInterestRate) : "";
+      field(`adjustment${index}Payment`).value = change && change.monthlyPayment !== null ? String(change.monthlyPayment) : "";
+      field(`adjustment${index}AnnualExtra`).value = change ? String(change.annualExtra ?? 0) : "";
+    });
     render();
     saveCurrentState();
   }
@@ -260,6 +343,18 @@
     saveCurrentState();
   });
   form.addEventListener("change", (event) => {
+    const unitMatch = /^adjustment([12])Unit$/.exec(event.target.name);
+    if (unitMatch) {
+      const index = Number(unitMatch[1]);
+      const periodField = field(`adjustment${index}After`);
+      const previousUnit = event.target.dataset.previousUnit || event.target.value;
+      const period = Number(periodField.value);
+      if (Number.isFinite(period) && previousUnit !== event.target.value) {
+        const converted = previousUnit === "years" ? period * 12 : Math.max(1, Math.min(99, Math.round(period / 12)));
+        periodField.value = String(converted);
+      }
+      event.target.dataset.previousUnit = event.target.value;
+    }
     if (["costMode", "ancillaryMode", "equity"].includes(event.target.name)) updateLoanFromCosts();
     render();
     saveCurrentState();
@@ -344,10 +439,10 @@
       }
       const importedScenarios = project.scenarios.map((item) => {
         if (!item || typeof item.name !== "string" || !isValidProjectInputs(item.inputs)) throw new Error("Mindestens ein gespeichertes Szenario ist ungültig.");
-        const inputs = withoutMonthlyExtra(item.inputs);
+        const inputs = normalizeSavedInputs(item.inputs);
         return { name: item.name.slice(0, 60), inputs, result: FinanceCalculations.calculateLoan(inputs) };
       });
-      applyInputs(withoutMonthlyExtra(project.inputs));
+      applyInputs(normalizeSavedInputs(project.inputs));
       scenarios = importedScenarios;
       persistScenarios();
       renderScenarios();
@@ -364,7 +459,18 @@
   function isValidProjectInputs(inputs) {
     if (!inputs || !["items", "total"].includes(inputs.costMode) || !["amortization", "payment"].includes(inputs.paymentMode) || !["percent", "amount"].includes(inputs.ancillaryMode)) return false;
     const numberNames = ["purchasePrice", "landCost", "constructionCost", "ancillaryValue", "otherCost", "totalCostInput", "equity", "loanAmount", "annualInterestRate", "initialAmortizationRate", "monthlyPayment", "annualExtra"];
-    return numberNames.every((name) => Number.isFinite(inputs[name]) && inputs[name] >= 0) && inputs.annualInterestRate <= 100 && inputs.initialAmortizationRate <= 100;
+    if (!numberNames.every((name) => Number.isFinite(inputs[name]) && inputs[name] >= 0) || inputs.annualInterestRate > 100 || inputs.initialAmortizationRate > 100) return false;
+    const changes = inputs.rateChanges || [];
+    if (!Array.isArray(changes) || changes.length > 2) return false;
+    const usedMonths = new Set();
+    return changes.every((change) => {
+      if (!change || !Number.isInteger(change.afterMonths) || change.afterMonths < 1 || change.afterMonths > 1199 || usedMonths.has(change.afterMonths)) return false;
+      usedMonths.add(change.afterMonths);
+      const validRate = change.annualInterestRate === null || Number.isFinite(change.annualInterestRate) && change.annualInterestRate >= 0 && change.annualInterestRate <= 100;
+      const validPayment = change.monthlyPayment === null || Number.isFinite(change.monthlyPayment) && change.monthlyPayment >= 0;
+      const validExtra = change.annualExtra == null || Number.isFinite(change.annualExtra) && change.annualExtra >= 0;
+      return validRate && validPayment && validExtra && (change.annualInterestRate !== null || change.monthlyPayment !== null || change.annualExtra != null);
+    });
   }
 
   restoreCurrentState();

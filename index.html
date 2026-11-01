@@ -64,6 +64,25 @@
           <label class="field" id="payment-field" hidden><span>Monatliche Rate</span><span class="input-wrap"><input name="monthlyPaymentInput" type="number" min="0" step="10" value="2566.67"><span>€</span></span></label>
           <label class="field"><span>Jährliche Sondertilgung</span><span class="input-wrap"><input name="annualExtra" type="number" min="0" step="100" value="0"><span>€</span></span><small>Modelliert jeweils am Ende jedes 12. Monats.</small></label>
         </div>
+        <div class="adjustments-heading"><h3>Finanzierungsanpassungen</h3><p>Bis zu zwei Änderungen von Sollzins, Monatsrate oder Sondertilgung. Sie gelten nach der angegebenen Zahl von Monatsraten ab dem Folgemonat. Die neue Sondertilgung ist Pflicht; 0 € beendet sie.</p></div>
+        <div class="adjustment-card">
+          <label class="adjustment-toggle"><input type="checkbox" name="adjustment1Enabled"><span>Anpassung 1 aktivieren</span></label>
+          <div id="adjustment1-fields" class="input-grid adjustment-fields" hidden>
+            <label class="field"><span>Anpassung nach</span><span class="input-wrap"><input name="adjustment1After" type="number" min="1" max="1199" step="1" value="10"><select name="adjustment1Unit" aria-label="Zeiteinheit für Anpassung 1"><option value="years" selected>Jahre</option><option value="months">Monate</option></select></span></label>
+            <label class="field"><span>Neuer Sollzinssatz pro Jahr (optional)</span><span class="input-wrap"><input name="adjustment1AnnualRate" type="number" min="0" max="100" step="0.01" value="" data-optional="true"><span>%</span></span></label>
+            <label class="field"><span>Neue Monatsrate (optional)</span><span class="input-wrap"><input name="adjustment1Payment" type="number" min="0" step="10" value="" data-optional="true"><span>€</span></span></label>
+            <label class="field"><span>Neue jährliche Sondertilgung</span><span class="input-wrap"><input name="adjustment1AnnualExtra" type="number" min="0" step="100" value="0" data-optional="true"><span>€</span></span><small>Pflichtfeld; 0 € setzt die Sondertilgung aus.</small></label>
+          </div>
+        </div>
+        <div class="adjustment-card">
+          <label class="adjustment-toggle"><input type="checkbox" name="adjustment2Enabled"><span>Anpassung 2 aktivieren</span></label>
+          <div id="adjustment2-fields" class="input-grid adjustment-fields" hidden>
+            <label class="field"><span>Anpassung nach</span><span class="input-wrap"><input name="adjustment2After" type="number" min="1" max="1199" step="1" value="20"><select name="adjustment2Unit" aria-label="Zeiteinheit für Anpassung 2"><option value="years" selected>Jahre</option><option value="months">Monate</option></select></span></label>
+            <label class="field"><span>Neuer Sollzinssatz pro Jahr (optional)</span><span class="input-wrap"><input name="adjustment2AnnualRate" type="number" min="0" max="100" step="0.01" value="" data-optional="true"><span>%</span></span></label>
+            <label class="field"><span>Neue Monatsrate (optional)</span><span class="input-wrap"><input name="adjustment2Payment" type="number" min="0" step="10" value="" data-optional="true"><span>€</span></span></label>
+            <label class="field"><span>Neue jährliche Sondertilgung</span><span class="input-wrap"><input name="adjustment2AnnualExtra" type="number" min="0" step="100" value="0" data-optional="true"><span>€</span></span><small>Pflichtfeld; 0 € setzt die Sondertilgung aus.</small></label>
+          </div>
+        </div>
       </section>
 
       <div id="validation-message" class="validation" role="alert" hidden></div>
@@ -88,7 +107,7 @@
         <div><h3>Restschuld im Zeitverlauf</h3><div class="table-scroll"><table><thead><tr><th>Zeitpunkt</th><th>Restschuld</th></tr></thead><tbody id="milestone-rows"></tbody></table></div></div>
         <div><h3>Tilgungsverlauf</h3><p class="muted">Restschuld zum Ende jedes Jahres</p><div class="table-scroll"><table><thead><tr><th>Jahr</th><th>Restschuld</th><th>Getilgt gesamt</th></tr></thead><tbody id="schedule-rows"></tbody></table></div></div>
       </div>
-      <details class="assumptions"><summary>Berechnungsannahmen</summary><p>Monatliche Verzinsung mit Sollzinssatz ÷ 12. Zinsen werden auf die jeweilige Restschuld berechnet. Die letzte Rate wird auf den offenen Betrag begrenzt. Sondertilgungen erfolgen am Ende jedes 12. Monats. Gebühren, Zinsbindungsende, Anschlussfinanzierung und Zinsänderungen sind nicht berücksichtigt.</p></details>
+      <details class="assumptions"><summary>Berechnungsannahmen</summary><p>Monatliche Verzinsung mit dem jeweils geltenden Sollzinssatz ÷ 12. Zinsen werden auf die jeweilige Restschuld berechnet. Hinterlegte Anpassungen von Sollzins, Monatsrate oder jährlicher Sondertilgung gelten ab dem Folgemonat nach der angegebenen Zahl regulärer Raten; nicht geänderte Werte bleiben bestehen. Die letzte Rate wird auf den offenen Betrag begrenzt. Sondertilgungen erfolgen am Ende jedes 12. Monats. Gebühren, Zinsbindungsende und Anschlussfinanzierung sind nicht berücksichtigt.</p></details>
     </section>
 
     <section class="panel" aria-labelledby="scenarios-heading">

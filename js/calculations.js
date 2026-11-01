@@ -4,24 +4,43 @@
   function calculateLoan(input) {
     const loanAmount = Number(input.loanAmount);
     const annualInterestRate = Number(input.annualInterestRate);
-    const monthlyInterestRate = annualInterestRate / 12 / 100;
     const annualExtra = Number(input.annualExtra || 0);
     const paymentMode = input.paymentMode || "amortization";
     const basePayment = paymentMode === "payment"
       ? Number(input.monthlyPayment)
       : loanAmount * (annualInterestRate / 100 + Number(input.initialAmortizationRate) / 100) / 12;
     const monthlyPayment = basePayment;
+    const rateChanges = Array.isArray(input.rateChanges)
+      ? input.rateChanges.map((change) => ({ ...change, annualInterestRate: change.annualInterestRate ?? null, monthlyPayment: change.monthlyPayment ?? null, annualExtra: change.annualExtra ?? 0 })).sort((first, second) => first.afterMonths - second.afterMonths)
+      : [];
 
     if (![loanAmount, annualInterestRate, monthlyPayment, annualExtra].every(Number.isFinite) || loanAmount < 0 || annualInterestRate < 0 || annualInterestRate > 100 || monthlyPayment < 0 || annualExtra < 0) {
       return { error: "Bitte prüfe die Finanzierungswerte. Negative Beträge und Zinssätze über 100 % sind nicht zulässig." };
     }
+    if (rateChanges.length > 2) return { error: "Es sind höchstens zwei Zins- oder Ratenanpassungen möglich." };
+    const changeMonths = new Set();
+    for (const change of rateChanges) {
+      if (!Number.isInteger(change.afterMonths) || change.afterMonths < 1 || change.afterMonths > 1199 || changeMonths.has(change.afterMonths)) {
+        return { error: "Die Anpassungen müssen zu unterschiedlichen Monatszeitpunkten zwischen 1 und 1.199 erfolgen." };
+      }
+      changeMonths.add(change.afterMonths);
+      const validRate = change.annualInterestRate === null || Number.isFinite(change.annualInterestRate) && change.annualInterestRate >= 0 && change.annualInterestRate <= 100;
+      const validPayment = change.monthlyPayment === null || Number.isFinite(change.monthlyPayment) && change.monthlyPayment >= 0;
+      const validExtra = change.annualExtra === null || Number.isFinite(change.annualExtra) && change.annualExtra >= 0;
+      if (!validRate || !validPayment || !validExtra || change.annualInterestRate === null && change.monthlyPayment === null && change.annualExtra === null) {
+        return { error: "Jede Anpassung benötigt einen gültigen neuen Sollzinssatz, eine neue Monatsrate oder eine neue Sondertilgung." };
+      }
+    }
     if (loanAmount === 0) return emptyResult(monthlyPayment);
 
-    const firstInterest = loanAmount * monthlyInterestRate;
+    const firstInterest = loanAmount * annualInterestRate / 12 / 100;
     if (monthlyPayment <= firstInterest) {
-      return { error: "Die Monatsrate deckt die laufenden Zinsen nicht. Es entsteht eine negative Tilgung; erhöhe die Rate." , negativeAmortization: true, firstInterest, monthlyPayment };
+      return { error: "Die Monatsrate deckt die laufenden Zinsen nicht. Es entsteht eine negative Tilgung; erhöhe die Rate.", negativeAmortization: true, firstInterest, monthlyPayment };
     }
 
+    let currentAnnualInterestRate = annualInterestRate;
+    let currentPayment = monthlyPayment;
+    let currentAnnualExtra = annualExtra;
     let remainingDebt = loanAmount;
     let totalInterest = 0;
     let totalPaid = 0;
@@ -31,14 +50,23 @@
     const interestMilestones = {};
     const maxMonths = 1200;
     while (remainingDebt > 0.005 && months < maxMonths) {
+      const adjustment = rateChanges.find((change) => change.afterMonths === months);
+      if (adjustment) {
+        if (adjustment.annualInterestRate !== null) currentAnnualInterestRate = adjustment.annualInterestRate;
+        if (adjustment.monthlyPayment !== null) currentPayment = adjustment.monthlyPayment;
+        if (adjustment.annualExtra !== null) currentAnnualExtra = adjustment.annualExtra;
+      }
+      const monthlyInterestRate = currentAnnualInterestRate / 12 / 100;
       const interest = remainingDebt * monthlyInterestRate;
-      const regularPayment = Math.min(monthlyPayment, remainingDebt + interest);
-      let principal = regularPayment - interest;
-      if (principal < 0) principal = 0;
+      if (currentPayment <= interest) {
+        return { error: "Nach einer Zins- oder Ratenanpassung deckt die Monatsrate die laufenden Zinsen nicht mehr. Es entsteht eine negative Tilgung.", negativeAmortization: true, firstInterest: loanAmount * annualInterestRate / 12 / 100, monthlyPayment };
+      }
+      const regularPayment = Math.min(currentPayment, remainingDebt + interest);
+      const principal = regularPayment - interest;
       remainingDebt -= principal;
       let paid = regularPayment;
       if ((months + 1) % 12 === 0 && remainingDebt > 0) {
-        const extra = Math.min(annualExtra, remainingDebt);
+        const extra = Math.min(currentAnnualExtra, remainingDebt);
         remainingDebt -= extra;
         paid += extra;
       }
