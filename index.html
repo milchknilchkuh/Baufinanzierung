@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>Baufinanzierungsrechner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#top" id="top"><span class="brand-mark">B</span><span>Baufinanzierung</span></a>
+    <span class="topbar-caption">Persönliches Planungswerkzeug</span>
+    <div class="project-actions">
+      <button type="button" class="button button-quiet" id="load-project">JSON laden</button>
+      <button type="button" class="button button-primary" id="save-project">Speichern unter…</button>
+      <input id="project-file" type="file" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <div class="workspace">
+    <aside class="inputs-column" aria-label="Finanzierungseingaben">
+    <form id="calculator-form" novalidate>
+      <section class="panel" aria-labelledby="costs-heading">
+        <div class="section-heading"><span class="step">01</span><div><h2 id="costs-heading">Immobilie und Kosten</h2><p>Erfasse einzelne Kosten oder gib die Gesamtkosten direkt an.</p></div></div>
+        <div class="mode-switch" role="group" aria-label="Kosten erfassen">
+          <label><input type="radio" name="costMode" value="items" checked> Einzelne Kosten</label>
+          <label><input type="radio" name="costMode" value="total"> Gesamtkosten</label>
+        </div>
+        <div id="item-cost-fields" class="input-grid">
+          <label class="field"><span>Kaufpreis der Immobilie</span><span class="input-wrap"><input name="purchasePrice" type="number" min="0" step="1000" value="350000"><span>€</span></span></label>
+          <label class="field"><span>Grundstückskosten</span><span class="input-wrap"><input name="landCost" type="number" min="0" step="1000" value="0"><span>€</span></span></label>
+          <label class="field"><span>Bau- oder Sanierungskosten</span><span class="input-wrap"><input name="constructionCost" type="number" min="0" step="1000" value="0"><span>€</span></span></label>
+          <label class="field"><span>Kaufnebenkosten berechnen als</span><select name="ancillaryMode"><option value="percent">Prozent vom Kaufpreis</option><option value="amount">Fester Betrag</option></select></label>
+          <label class="field"><span>Kaufnebenkosten</span><span class="input-wrap"><input name="ancillaryValue" type="number" min="0" step="0.1" value="10"><span id="ancillary-unit">%</span></span></label>
+          <label class="field"><span>Weitere Kosten</span><span class="input-wrap"><input name="otherCost" type="number" min="0" step="100" value="0"><span>€</span></span></label>
+        </div>
+        <div id="total-cost-field" class="input-grid" hidden>
+          <label class="field"><span>Gesamtkosten inklusive aller Kosten</span><span class="input-wrap"><input name="totalCostInput" type="number" min="0" step="1000" value="385000"><span>€</span></span></label>
+        </div>
+        <div class="cost-summary"><span>Gesamtkosten</span><strong id="total-cost-display">–</strong></div>
+      </section>
+
+      <section class="panel" aria-labelledby="equity-heading">
+        <div class="section-heading"><span class="step">02</span><div><h2 id="equity-heading">Eigenkapital</h2><p>Der Finanzierungsbedarf wird standardmäßig aus Kosten minus Eigenkapital berechnet.</p></div></div>
+        <div class="input-grid">
+          <label class="field"><span>Eingesetztes Eigenkapital</span><span class="input-wrap"><input name="equity" type="number" min="0" step="1000" value="50000"><span>€</span></span></label>
+          <label class="field"><span>Darlehensbetrag</span><span class="input-wrap"><input name="loanAmount" type="number" min="0" step="1000" value="335000"><span>€</span></span><small>Wird beim Ändern der Kosten oder des Eigenkapitals neu berechnet.</small></label>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="finance-heading">
+        <div class="section-heading"><span class="step">03</span><div><h2 id="finance-heading">Finanzierung</h2><p>Wähle, ob die Rate aus der Anfangstilgung oder aus einer festen Monatsrate berechnet wird.</p></div></div>
+        <div class="mode-switch" role="group" aria-label="Berechnungsart">
+          <label><input type="radio" name="paymentMode" value="amortization" checked> Anfangstilgung vorgeben</label>
+          <label><input type="radio" name="paymentMode" value="payment"> Monatsrate vorgeben</label>
+        </div>
+        <div class="input-grid">
+          <label class="field"><span>Sollzinssatz pro Jahr</span><span class="input-wrap"><input name="annualInterestRate" type="number" min="0" max="100" step="0.01" value="3.5"><span>%</span></span></label>
+          <label class="field" id="amortization-field"><span>Anfangstilgung pro Jahr</span><span class="input-wrap"><input name="initialAmortizationRate" type="number" min="0" max="100" step="0.01" value="2"><span>%</span></span></label>
+          <label class="field" id="payment-field" hidden><span>Monatliche Rate</span><span class="input-wrap"><input name="monthlyPaymentInput" type="number" min="0" step="10" value="1531.25"><span>€</span></span></label>
+          <label class="field"><span>Zusätzlicher monatlicher Tilgungsbetrag</span><span class="input-wrap"><input name="monthlyExtra" type="number" min="0" step="10" value="0"><span>€</span></span></label>
+          <label class="field"><span>Jährliche Sondertilgung</span><span class="input-wrap"><input name="annualExtra" type="number" min="0" step="100" value="0"><span>€</span></span><small>Modelliert jeweils am Ende jedes 12. Monats.</small></label>
+        </div>
+      </section>
+
+      <div id="validation-message" class="validation" role="alert" hidden></div>
+    </form>
+    <p class="disclaimer">Dieses Werkzeug dient der persönlichen Planung und ist keine Bank-, Steuer- oder Finanzberatung.</p>
+    </aside>
+
+    <div class="outputs-column">
+    <section id="results-section" class="panel results-panel" aria-labelledby="results-heading">
+      <div class="section-heading"><span class="step">04</span><div><h2 id="results-heading">Ergebnisse der Modellrechnung</h2><p>Unverbindliche Berechnung auf Basis der eingegebenen Annahmen.</p></div></div>
+      <div id="negative-amortization" class="warning" role="status" hidden></div>
+      <div id="summary-cards" class="summary-grid"></div>
+      <div class="result-columns">
+        <div><h3>Restschuld im Zeitverlauf</h3><div class="table-scroll"><table><thead><tr><th>Zeitpunkt</th><th>Restschuld</th></tr></thead><tbody id="milestone-rows"></tbody></table></div></div>
+        <div><h3>Tilgungsverlauf</h3><p class="muted">Restschuld zum Ende jedes Jahres</p><div class="table-scroll"><table><thead><tr><th>Jahr</th><th>Restschuld</th><th>Getilgt gesamt</th></tr></thead><tbody id="schedule-rows"></tbody></table></div></div>
+      </div>
+      <details class="assumptions"><summary>Berechnungsannahmen</summary><p>Monatliche Verzinsung mit Sollzinssatz ÷ 12. Zinsen werden auf die jeweilige Restschuld berechnet. Die letzte Rate wird auf den offenen Betrag begrenzt. Sondertilgungen erfolgen am Ende jedes 12. Monats. Gebühren, Zinsbindungsende, Anschlussfinanzierung und Zinsänderungen sind nicht berücksichtigt.</p></details>
+    </section>
+
+    <section class="panel" aria-labelledby="scenarios-heading">
+      <div class="section-heading"><span class="step">05</span><div><h2 id="scenarios-heading">Szenarien vergleichen</h2><p>Speichere Varianten lokal in diesem Browser und vergleiche sie nebeneinander.</p></div></div>
+      <div class="scenario-actions"><label class="field scenario-name"><span>Name des Szenarios</span><input id="scenario-name" type="text" maxlength="60" value="Szenario 1"></label><button type="button" class="button button-primary" id="save-scenario">Szenario speichern</button></div>
+      <p id="scenario-status" class="muted" role="status"></p>
+      <div class="table-scroll"><table class="comparison-table"><thead id="comparison-head"></thead><tbody id="comparison-body"></tbody></table></div>
+      <div id="scenario-list" class="scenario-list"></div>
+    </section>
+    </div>
+    </div>
+  </main>
+  <script src="js/calculations.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
