@@ -10,6 +10,7 @@
   const field = (name) => form.elements.namedItem(name);
   let scenarios = loadScenarios();
   let currentResult = null;
+  let resultView = "chart";
 
   function money(value) { return euro.format(Number.isFinite(value) ? value : 0); }
   function percentText(value) { return `${percent.format(value)} %`; }
@@ -79,6 +80,8 @@
       document.getElementById("summary-cards").innerHTML = "";
       document.getElementById("milestone-rows").innerHTML = "";
       document.getElementById("schedule-rows").innerHTML = "";
+      document.getElementById("balance-chart").innerHTML = "";
+      document.getElementById("repayment-chart").innerHTML = "";
       document.getElementById("negative-amortization").hidden = !result.negativeAmortization;
       document.getElementById("negative-amortization").textContent = result.negativeAmortization ? result.error : "";
       return;
@@ -100,6 +103,57 @@
     document.getElementById("summary-cards").innerHTML = cards.map(([label, value, primary]) => `<div class="metric${primary ? " primary" : ""}"><span>${label}</span><strong>${value}</strong></div>`).join("");
     document.getElementById("milestone-rows").innerHTML = [5, 10, 15, 20].map((year) => `<tr><td>Nach ${year} Jahren</td><td>${money(result.milestones[year])}</td></tr>`).join("");
     document.getElementById("schedule-rows").innerHTML = result.schedule.map((row) => `<tr><td>${row.year}</td><td>${money(row.remainingDebt)}</td><td>${money(row.principalPaid)}</td></tr>`).join("") || '<tr><td colspan="3">Kein Darlehen</td></tr>';
+    renderCharts(result, values.loanAmount);
+  }
+  function renderCharts(result, loanAmount) {
+    if (!loanAmount || !result.schedule.length) {
+      document.getElementById("balance-chart").innerHTML = '<p class="chart-empty">Kein Darlehensverlauf vorhanden.</p>';
+      document.getElementById("repayment-chart").innerHTML = '<p class="chart-empty">Kein Tilgungsverlauf vorhanden.</p>';
+      return;
+    }
+    const history = [{ month: 0, remainingDebt: loanAmount, principalPaid: 0 }, ...result.schedule];
+    renderLineChart("balance-chart", history, loanAmount, "remainingDebt", "Restschuld", "#16796f");
+    renderLineChart("repayment-chart", history, loanAmount, "principalPaid", "Getilgter Betrag", "#3979a8");
+  }
+  function renderLineChart(containerId, history, maxValue, valueKey, seriesName, color) {
+    const width = 640;
+    const height = 250;
+    const left = 68;
+    const right = 14;
+    const top = 14;
+    const bottom = 42;
+    const plotWidth = width - left - right;
+    const plotHeight = height - top - bottom;
+    const maxMonth = Math.max(1, history[history.length - 1].month);
+    const x = (month) => left + month / maxMonth * plotWidth;
+    const y = (value) => top + (1 - value / maxValue) * plotHeight;
+    const points = history.map((item) => `${x(item.month).toFixed(1)},${y(item[valueKey]).toFixed(1)}`).join(" ");
+    const ticks = [maxValue, maxValue / 2, 0];
+    const yearLabels = [0, maxMonth / 2, maxMonth];
+    const yGrid = ticks.map((value) => `<g><line x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}" class="chart-gridline"/><text x="${left - 8}" y="${y(value) + 4}" text-anchor="end" class="chart-axis-label">${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(value)} €</text></g>`).join("");
+    const xGrid = yearLabels.map((month, index) => {
+      const label = index === 0 ? "0" : index === yearLabels.length - 1 ? formatDuration(maxMonth) : `${Math.round(month / 12)} J.`;
+      return `<g><line x1="${x(month)}" y1="${top}" x2="${x(month)}" y2="${height - bottom}" class="chart-gridline chart-gridline-vertical"/><text x="${x(month)}" y="${height - 12}" text-anchor="${index === 0 ? "start" : index === yearLabels.length - 1 ? "end" : "middle"}" class="chart-axis-label">${label}</text></g>`;
+    }).join("");
+    const dots = history.map((item) => `<circle class="chart-point" cx="${x(item.month)}" cy="${y(item[valueKey])}" r="5" fill="${color}" tabindex="0" aria-label="${seriesName}, ${formatDuration(item.month)}: ${money(item[valueKey])}" data-month="${item.month}" data-value="${item[valueKey]}"/>`).join("");
+    const container = document.getElementById(containerId);
+    container.innerHTML = `<svg class="line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${seriesName} im Zeitverlauf">${yGrid}${xGrid}<polyline points="${points}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${dots}</svg><div class="chart-tooltip" role="tooltip" hidden></div><div class="chart-legend"><span style="--legend-color:${color}"></span>${seriesName}</div>`;
+    const tooltip = container.querySelector(".chart-tooltip");
+    const showTooltip = (point) => {
+      tooltip.textContent = `${seriesName} · ${formatDuration(Number(point.dataset.month))} · ${money(Number(point.dataset.value))}`;
+      tooltip.hidden = false;
+      const pointRect = point.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const xPosition = Math.min(Math.max(tooltip.offsetWidth / 2 + 6, pointRect.left + pointRect.width / 2 - containerRect.left), containerRect.width - tooltip.offsetWidth / 2 - 6);
+      tooltip.style.left = `${xPosition}px`;
+      tooltip.style.top = `${Math.max(4, pointRect.top - containerRect.top - 8)}px`;
+    };
+    container.querySelectorAll(".chart-point").forEach((point) => {
+      point.addEventListener("pointerenter", () => showTooltip(point));
+      point.addEventListener("pointerleave", () => { tooltip.hidden = true; });
+      point.addEventListener("focus", () => showTooltip(point));
+      point.addEventListener("blur", () => { tooltip.hidden = true; });
+    });
   }
   function collectFormState() {
     const fields = {};
@@ -209,6 +263,18 @@
     if (["costMode", "ancillaryMode", "equity"].includes(event.target.name)) updateLoanFromCosts();
     render();
     saveCurrentState();
+  });
+  document.querySelector(".view-switch").addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-result-view]");
+    if (!button) return;
+    resultView = button.dataset.resultView;
+    document.getElementById("chart-view").hidden = resultView !== "chart";
+    document.getElementById("table-view").hidden = resultView !== "table";
+    document.querySelectorAll(".view-switch button").forEach((viewButton) => {
+      const isActive = viewButton.dataset.resultView === resultView;
+      viewButton.classList.toggle("active", isActive);
+      viewButton.setAttribute("aria-pressed", String(isActive));
+    });
   });
   document.getElementById("scenario-name").addEventListener("input", saveCurrentState);
   document.getElementById("save-scenario").addEventListener("click", () => {

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4f6f8">
   <title>Baufinanzierungsrechner</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -75,7 +76,15 @@
       <div class="section-heading"><span class="step">04</span><div><h2 id="results-heading">Ergebnisse der Modellrechnung</h2><p>Unverbindliche Berechnung auf Basis der eingegebenen Annahmen.</p></div></div>
       <div id="negative-amortization" class="warning" role="status" hidden></div>
       <div id="summary-cards" class="summary-grid"></div>
-      <div class="result-columns">
+      <div class="view-switch" role="group" aria-label="Darstellung des Tilgungsverlaufs">
+        <button type="button" class="view-button active" data-result-view="chart" aria-pressed="true">Grafik</button>
+        <button type="button" class="view-button" data-result-view="table" aria-pressed="false">Tabelle</button>
+      </div>
+      <div id="chart-view" class="result-columns chart-view">
+        <div class="chart-card"><h3>Restschuld</h3><p class="muted">Verbleibendes Darlehen im Zeitverlauf</p><div id="balance-chart" class="chart-container"></div></div>
+        <div class="chart-card"><h3>Tilgungsverlauf</h3><p class="muted">Getilgter Betrag und verbleibende Restschuld</p><div id="repayment-chart" class="chart-container"></div></div>
+      </div>
+      <div id="table-view" class="result-columns table-view" hidden>
         <div><h3>Restschuld im Zeitverlauf</h3><div class="table-scroll"><table><thead><tr><th>Zeitpunkt</th><th>Restschuld</th></tr></thead><tbody id="milestone-rows"></tbody></table></div></div>
         <div><h3>Tilgungsverlauf</h3><p class="muted">Restschuld zum Ende jedes Jahres</p><div class="table-scroll"><table><thead><tr><th>Jahr</th><th>Restschuld</th><th>Getilgt gesamt</th></tr></thead><tbody id="schedule-rows"></tbody></table></div></div>
       </div>

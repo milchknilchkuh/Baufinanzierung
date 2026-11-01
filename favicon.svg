@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 64 64"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="favicon.svg"
+   inkscape:version="1.4.2 (f4327f4, 2025-05-13)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="6.3046875"
+     inkscape:cx="12.92689"
+     inkscape:cy="46.869888"
+     inkscape:window-width="1920"
+     inkscape:window-height="1009"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <path
+     d="M 32,2.9437165 2.1147383,27.631543 v 33.78334 H 61.885261 v -33.78334 z"
+     fill="#ffffff"
+     id="path1"
+     style="fill:#ffffff;fill-opacity:1;stroke:#16796f;stroke-width:6;stroke-opacity:1" />
+  <text
+     x="31.943922"
+     y="52.560696"
+     fill="#14384b"
+     font-family="Arial, sans-serif"
+     font-size="42.1421px"
+     font-weight="700"
+     text-anchor="middle"
+     id="text1"
+     style="stroke-width:1.35943">€</text>
+</svg>

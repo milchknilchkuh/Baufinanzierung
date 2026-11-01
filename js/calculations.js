@@ -46,7 +46,7 @@
       totalInterest += interest;
       totalPaid += paid;
       months += 1;
-      if (months % 12 === 0 || remainingDebt === 0) schedule.push({ year: Math.ceil(months / 12), remainingDebt, principalPaid: loanAmount - remainingDebt });
+      if (months % 12 === 0 || remainingDebt === 0) schedule.push({ year: Math.ceil(months / 12), month: months, remainingDebt, principalPaid: loanAmount - remainingDebt });
       if ([60, 120, 180, 240].includes(months)) milestones[months / 12] = remainingDebt;
       if (months % 12 === 0) interestMilestones[months / 12] = totalInterest;
     }
