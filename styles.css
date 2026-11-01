@@ -42,6 +42,8 @@ body { margin: 0; line-height: 1.45; }
 .input-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 11px; }
 .field { display: flex; min-width: 0; flex-direction: column; gap: 5px; font-size: .82rem; font-weight: 650; }
 .field small { color: var(--muted); font-size: .72rem; font-weight: 400; }
+.derived-value, .calculated-adjustment { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid #d8e7e4; border-radius: 7px; color: #42615d; background: #f3f8f7; font-size: .78rem; }
+.derived-value strong, .calculated-adjustment strong { color: var(--navy); font-size: .84rem; text-align: right; }
 .field input, .field select { width: 100%; min-width: 0; height: 38px; padding: 0 10px; border: 1px solid #cbd7dc; border-radius: 7px; color: #172b3a; background: #fff; font: inherit; font-weight: 450; }
 .field input:focus, .field select:focus { outline: 3px solid #16796f2c; border-color: var(--teal); }
 .input-wrap { display: flex; align-items: center; padding-right: 10px; border: 1px solid #cbd7dc; border-radius: 7px; background: #fff; }

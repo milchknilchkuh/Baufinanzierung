@@ -53,24 +53,32 @@
       </section>
 
       <section class="panel" aria-labelledby="finance-heading">
-        <div class="section-heading"><span class="step">03</span><div><h2 id="finance-heading">Finanzierung</h2><p>Wähle, ob die Rate aus der Anfangstilgung oder aus einer festen Monatsrate berechnet wird.</p></div></div>
+        <div class="section-heading"><span class="step">03</span><div><h2 id="finance-heading">Finanzierung</h2><p>Gib Monatsrate oder Anfangstilgung vor; die jeweils andere Größe wird berechnet. Monatsrate ist voreingestellt.</p></div></div>
         <div class="mode-switch" role="group" aria-label="Berechnungsart">
-          <label><input type="radio" name="paymentMode" value="amortization" checked> Anfangstilgung vorgeben</label>
-          <label><input type="radio" name="paymentMode" value="payment"> Monatsrate vorgeben</label>
+          <label><input type="radio" name="paymentMode" value="payment" checked> Monatsrate vorgeben</label>
+          <label><input type="radio" name="paymentMode" value="amortization"> Anfangstilgung vorgeben</label>
         </div>
         <div class="input-grid">
           <label class="field"><span>Sollzinssatz pro Jahr</span><span class="input-wrap"><input name="annualInterestRate" type="number" min="0" max="100" step="0.01" value="3.5"><span>%</span></span></label>
-          <label class="field" id="amortization-field"><span>Anfangstilgung pro Jahr</span><span class="input-wrap"><input name="initialAmortizationRate" type="number" min="0" max="100" step="0.01" value="2"><span>%</span></span></label>
-          <label class="field" id="payment-field" hidden><span>Monatliche Rate</span><span class="input-wrap"><input name="monthlyPaymentInput" type="number" min="0" step="10" value="2566.67"><span>€</span></span></label>
+          <label class="field" id="amortization-field" hidden><span>Anfangstilgung pro Jahr</span><span class="input-wrap"><input name="initialAmortizationRate" type="number" min="0" max="100" step="0.01" value="2"><span>%</span></span></label>
+          <label class="field" id="payment-field"><span>Monatliche Rate</span><span class="input-wrap"><input name="monthlyPaymentInput" type="number" min="0" step="10" value="2566.67"><span>€</span></span></label>
+          <div id="derived-amortization-field" class="derived-value"><span>Anfangstilgung berechnet</span><strong id="derived-amortization-value">–</strong></div>
+          <div id="derived-payment-field" class="derived-value" hidden><span>Monatliche Rate berechnet</span><strong id="derived-payment-value">–</strong></div>
           <label class="field"><span>Jährliche Sondertilgung</span><span class="input-wrap"><input name="annualExtra" type="number" min="0" step="100" value="0"><span>€</span></span><small>Modelliert jeweils am Ende jedes 12. Monats.</small></label>
         </div>
-        <div class="adjustments-heading"><h3>Finanzierungsanpassungen</h3><p>Bis zu zwei Änderungen von Sollzins, Monatsrate oder Sondertilgung. Sie gelten nach der angegebenen Zahl von Monatsraten ab dem Folgemonat. Die neue Sondertilgung ist Pflicht; 0 € beendet sie.</p></div>
+        <div class="adjustments-heading"><h3>Finanzierungsanpassungen</h3><p>Bis zu zwei Änderungen von Sollzins, Monatsrate, Tilgung oder Sondertilgung. Monatsrate ist voreingestellt; die jeweils andere Größe wird berechnet. Die neue Sondertilgung ist Pflicht; 0 € beendet sie.</p></div>
         <div class="adjustment-card">
           <label class="adjustment-toggle"><input type="checkbox" name="adjustment1Enabled"><span>Anpassung 1 aktivieren</span></label>
           <div id="adjustment1-fields" class="input-grid adjustment-fields" hidden>
             <label class="field"><span>Anpassung nach</span><span class="input-wrap"><input name="adjustment1After" type="number" min="1" max="1199" step="1" value="10"><select name="adjustment1Unit" aria-label="Zeiteinheit für Anpassung 1"><option value="years" selected>Jahre</option><option value="months">Monate</option></select></span></label>
             <label class="field"><span>Neuer Sollzinssatz pro Jahr (optional)</span><span class="input-wrap"><input name="adjustment1AnnualRate" type="number" min="0" max="100" step="0.01" value="" data-optional="true"><span>%</span></span></label>
-            <label class="field"><span>Neue Monatsrate (optional)</span><span class="input-wrap"><input name="adjustment1Payment" type="number" min="0" step="10" value="" data-optional="true"><span>€</span></span></label>
+            <div class="mode-switch adjustment-mode" role="group" aria-label="Berechnungsart für Anpassung 1">
+              <label><input type="radio" name="adjustment1Mode" value="payment" checked> Monatsrate vorgeben</label>
+              <label><input type="radio" name="adjustment1Mode" value="amortization"> Tilgung vorgeben</label>
+            </div>
+            <label class="field" id="adjustment1-payment-field"><span>Neue Monatsrate</span><span class="input-wrap"><input name="adjustment1Payment" type="number" min="0" step="10" value="" data-optional="true"><span>€</span></span></label>
+            <label class="field" id="adjustment1-amortization-field" hidden><span>Neue Tilgung pro Jahr</span><span class="input-wrap"><input name="adjustment1Amortization" type="number" min="0" max="100" step="0.01" value="" data-optional="true"><span>%</span></span></label>
+            <div class="calculated-adjustment"><span id="adjustment1-derived-label">Tilgung daraus berechnet</span><strong id="adjustment1-derived-value">–</strong></div>
             <label class="field"><span>Neue jährliche Sondertilgung</span><span class="input-wrap"><input name="adjustment1AnnualExtra" type="number" min="0" step="100" value="0" data-optional="true"><span>€</span></span><small>Pflichtfeld; 0 € setzt die Sondertilgung aus.</small></label>
           </div>
         </div>
@@ -79,7 +87,13 @@
           <div id="adjustment2-fields" class="input-grid adjustment-fields" hidden>
             <label class="field"><span>Anpassung nach</span><span class="input-wrap"><input name="adjustment2After" type="number" min="1" max="1199" step="1" value="20"><select name="adjustment2Unit" aria-label="Zeiteinheit für Anpassung 2"><option value="years" selected>Jahre</option><option value="months">Monate</option></select></span></label>
             <label class="field"><span>Neuer Sollzinssatz pro Jahr (optional)</span><span class="input-wrap"><input name="adjustment2AnnualRate" type="number" min="0" max="100" step="0.01" value="" data-optional="true"><span>%</span></span></label>
-            <label class="field"><span>Neue Monatsrate (optional)</span><span class="input-wrap"><input name="adjustment2Payment" type="number" min="0" step="10" value="" data-optional="true"><span>€</span></span></label>
+            <div class="mode-switch adjustment-mode" role="group" aria-label="Berechnungsart für Anpassung 2">
+              <label><input type="radio" name="adjustment2Mode" value="payment" checked> Monatsrate vorgeben</label>
+              <label><input type="radio" name="adjustment2Mode" value="amortization"> Tilgung vorgeben</label>
+            </div>
+            <label class="field" id="adjustment2-payment-field"><span>Neue Monatsrate</span><span class="input-wrap"><input name="adjustment2Payment" type="number" min="0" step="10" value="" data-optional="true"><span>€</span></span></label>
+            <label class="field" id="adjustment2-amortization-field" hidden><span>Neue Tilgung pro Jahr</span><span class="input-wrap"><input name="adjustment2Amortization" type="number" min="0" max="100" step="0.01" value="" data-optional="true"><span>%</span></span></label>
+            <div class="calculated-adjustment"><span id="adjustment2-derived-label">Tilgung daraus berechnet</span><strong id="adjustment2-derived-value">–</strong></div>
             <label class="field"><span>Neue jährliche Sondertilgung</span><span class="input-wrap"><input name="adjustment2AnnualExtra" type="number" min="0" step="100" value="0" data-optional="true"><span>€</span></span><small>Pflichtfeld; 0 € setzt die Sondertilgung aus.</small></label>
           </div>
         </div>
@@ -107,7 +121,7 @@
         <div><h3>Restschuld im Zeitverlauf</h3><div class="table-scroll"><table><thead><tr><th>Zeitpunkt</th><th>Restschuld</th></tr></thead><tbody id="milestone-rows"></tbody></table></div></div>
         <div><h3>Tilgungsverlauf</h3><p class="muted">Restschuld zum Ende jedes Jahres</p><div class="table-scroll"><table><thead><tr><th>Jahr</th><th>Restschuld</th><th>Getilgt gesamt</th></tr></thead><tbody id="schedule-rows"></tbody></table></div></div>
       </div>
-      <details class="assumptions"><summary>Berechnungsannahmen</summary><p>Monatliche Verzinsung mit dem jeweils geltenden Sollzinssatz ÷ 12. Zinsen werden auf die jeweilige Restschuld berechnet. Hinterlegte Anpassungen von Sollzins, Monatsrate oder jährlicher Sondertilgung gelten ab dem Folgemonat nach der angegebenen Zahl regulärer Raten; nicht geänderte Werte bleiben bestehen. Die letzte Rate wird auf den offenen Betrag begrenzt. Sondertilgungen erfolgen am Ende jedes 12. Monats. Gebühren, Zinsbindungsende und Anschlussfinanzierung sind nicht berücksichtigt.</p></details>
+      <details class="assumptions"><summary>Berechnungsannahmen</summary><p>Monatliche Verzinsung mit dem jeweils geltenden Sollzinssatz ÷ 12. Zinsen werden auf die jeweilige Restschuld berechnet. Hinterlegte Anpassungen von Sollzins, Monatsrate, Tilgung oder jährlicher Sondertilgung gelten ab dem Folgemonat nach der angegebenen Zahl regulärer Raten; nicht geänderte Werte bleiben bestehen. Die letzte Rate wird auf den offenen Betrag begrenzt. Sondertilgungen erfolgen am Ende jedes 12. Monats. Gebühren, Zinsbindungsende und Anschlussfinanzierung sind nicht berücksichtigt.</p></details>
     </section>
 
     <section class="panel" aria-labelledby="scenarios-heading">

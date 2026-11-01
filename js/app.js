@@ -43,8 +43,9 @@
       const period = Number(field(`adjustment${index}After`).value);
       const unit = field(`adjustment${index}Unit`).value;
       const afterMonths = period * (unit === "years" ? 12 : 1);
-      const rateValue = field(`adjustment${index}AnnualRate`).value.trim();
-      const paymentValue = field(`adjustment${index}Payment`).value.trim();
+      const adjustmentMode = selected(`adjustment${index}Mode`);
+      const amountName = adjustmentMode === "payment" ? `adjustment${index}Payment` : `adjustment${index}Amortization`;
+      const amountValue = field(amountName).value.trim();
       const extraValue = field(`adjustment${index}AnnualExtra`).value.trim();
       if (!Number.isInteger(period) || period < 1 || !["months", "years"].includes(unit) || !Number.isInteger(afterMonths) || afterMonths > 1199) {
         showError(`Bitte gib für Anpassung ${index} eine gültige Dauer von mindestens einem Monat und höchstens 99 Jahren an.`);
@@ -57,6 +58,11 @@
         return false;
       }
       usedMonths.add(afterMonths);
+      if (!amountValue) {
+        showError(`Gib für Anpassung ${index} die neue ${adjustmentMode === "payment" ? "Monatsrate" : "Tilgung"} ein.`);
+        field(amountName).focus();
+        return false;
+      }
       if (!extraValue) {
         showError(`Die jährliche Sondertilgung für Anpassung ${index} ist ein Pflichtfeld. Gib 0 ein, wenn sie entfallen soll.`);
         field(`adjustment${index}AnnualExtra`).focus();
@@ -85,12 +91,17 @@
     };
   }
   function collectRateChanges() {
-    return [1, 2].filter((index) => field(`adjustment${index}Enabled`).checked).map((index) => ({
-      afterMonths: Number(field(`adjustment${index}After`).value) * (field(`adjustment${index}Unit`).value === "years" ? 12 : 1),
-      annualInterestRate: field(`adjustment${index}AnnualRate`).value.trim() === "" ? null : Number(field(`adjustment${index}AnnualRate`).value),
-      monthlyPayment: field(`adjustment${index}Payment`).value.trim() === "" ? null : Number(field(`adjustment${index}Payment`).value),
-      annualExtra: field(`adjustment${index}AnnualExtra`).value.trim() === "" ? null : Number(field(`adjustment${index}AnnualExtra`).value)
-    }));
+    return [1, 2].filter((index) => field(`adjustment${index}Enabled`).checked).map((index) => {
+      const paymentMode = selected(`adjustment${index}Mode`);
+      return {
+        afterMonths: Number(field(`adjustment${index}After`).value) * (field(`adjustment${index}Unit`).value === "years" ? 12 : 1),
+        annualInterestRate: field(`adjustment${index}AnnualRate`).value.trim() === "" ? null : Number(field(`adjustment${index}AnnualRate`).value),
+        paymentMode,
+        monthlyPayment: paymentMode === "payment" ? Number(field(`adjustment${index}Payment`).value) : null,
+        amortizationRate: paymentMode === "amortization" ? Number(field(`adjustment${index}Amortization`).value) : null,
+        annualExtra: field(`adjustment${index}AnnualExtra`).value.trim() === "" ? null : Number(field(`adjustment${index}AnnualExtra`).value)
+      };
+    });
   }
   function render() {
     const mode = selected("costMode");
@@ -100,13 +111,26 @@
     const paymentMode = selected("paymentMode");
     document.getElementById("amortization-field").hidden = paymentMode !== "amortization";
     document.getElementById("payment-field").hidden = paymentMode !== "payment";
+    if (paymentMode === "payment" && field("monthlyPaymentInput").value.trim() === "") document.getElementById("derived-amortization-value").textContent = "–";
+    if (paymentMode === "amortization" && field("initialAmortizationRate").value.trim() === "") document.getElementById("derived-payment-value").textContent = "–";
     [1, 2].forEach((index) => {
       document.getElementById(`adjustment${index}-fields`).hidden = !field(`adjustment${index}Enabled`).checked;
       const unitField = field(`adjustment${index}Unit`);
       if (!unitField.dataset.previousUnit) unitField.dataset.previousUnit = unitField.value;
       field(`adjustment${index}After`).max = unitField.value === "years" ? "99" : "1199";
+      const adjustmentMode = selected(`adjustment${index}Mode`);
+      document.getElementById(`adjustment${index}-payment-field`).hidden = adjustmentMode !== "payment";
+      document.getElementById(`adjustment${index}-amortization-field`).hidden = adjustmentMode !== "amortization";
+      document.getElementById(`adjustment${index}-derived-label`).textContent = adjustmentMode === "payment" ? "Tilgung daraus berechnet" : "Monatsrate daraus berechnet";
+      const selectedAdjustmentAmount = adjustmentMode === "payment" ? `adjustment${index}Payment` : `adjustment${index}Amortization`;
+      if (!field(`adjustment${index}Enabled`).checked || field(selectedAdjustmentAmount).value.trim() === "") {
+        document.getElementById(`adjustment${index}-derived-value`).textContent = "–";
+      }
     });
-    if (!inputsAreValid()) return;
+    if (!inputsAreValid()) {
+      [1, 2].forEach((index) => { document.getElementById(`adjustment${index}-derived-value`).textContent = "–"; });
+      return;
+    }
     showError("");
     const totalCost = getTotalCost();
     document.getElementById("total-cost-display").textContent = money(totalCost);
@@ -114,7 +138,21 @@
     const values = collectInputs();
     const result = FinanceCalculations.calculateLoan(values);
     currentResult = result;
+    const calculatedStartingPayment = paymentMode === "payment"
+      ? values.monthlyPayment
+      : values.loanAmount * (values.annualInterestRate / 100 + values.initialAmortizationRate / 100) / 12;
+    const calculatedStartingAmortization = values.loanAmount > 0
+      ? Math.max(0, calculatedStartingPayment * 12 / values.loanAmount * 100 - values.annualInterestRate)
+      : 0;
+    if (paymentMode === "payment") {
+      field("initialAmortizationRate").value = calculatedStartingAmortization.toFixed(2);
+      document.getElementById("derived-amortization-value").textContent = percentText(calculatedStartingAmortization);
+    } else {
+      field("monthlyPaymentInput").value = calculatedStartingPayment.toFixed(2);
+      document.getElementById("derived-payment-value").textContent = money(calculatedStartingPayment);
+    }
     if (result.error) {
+      renderAdjustmentDerivedValues(result);
       const validation = document.getElementById("validation-message");
       validation.textContent = result.error;
       validation.hidden = false;
@@ -129,12 +167,7 @@
     }
     document.getElementById("negative-amortization").hidden = true;
     const actualPayment = result.monthlyPayment;
-    if (paymentMode === "payment") {
-      const impliedRate = values.loanAmount > 0 ? Math.max(0, (result.basePayment * 12 / values.loanAmount * 100) - values.annualInterestRate) : 0;
-      field("initialAmortizationRate").value = impliedRate.toFixed(2);
-    } else if (values.loanAmount > 0) {
-      field("monthlyPaymentInput").value = result.basePayment.toFixed(2);
-    }
+    renderAdjustmentDerivedValues(result);
     const cards = [
       ["Gesamtkosten", money(totalCost)], ["Eingesetztes Eigenkapital", money(values.equity)], ["Benötigtes Darlehen", money(values.loanAmount)],
       ["Monatliche Rate", money(actualPayment), true], ["Zinsanteil der ersten Rate", money(result.firstInterest)], ["Tilgungsanteil der ersten Rate", money(result.firstPrincipal)],
@@ -145,6 +178,19 @@
     document.getElementById("milestone-rows").innerHTML = [5, 10, 15, 20].map((year) => `<tr><td>Nach ${year} Jahren</td><td>${money(result.milestones[year])}</td></tr>`).join("");
     document.getElementById("schedule-rows").innerHTML = result.schedule.map((row) => `<tr><td>${row.year}</td><td>${money(row.remainingDebt)}</td><td>${money(row.principalPaid)}</td></tr>`).join("") || '<tr><td colspan="3">Kein Darlehen</td></tr>';
     renderCharts(result, values.loanAmount);
+  }
+  function renderAdjustmentDerivedValues(result) {
+    [1, 2].forEach((index) => {
+      if (!field(`adjustment${index}Enabled`).checked) {
+        document.getElementById(`adjustment${index}-derived-value`).textContent = "–";
+        return;
+      }
+      const change = collectRateChanges().find((item) => item.afterMonths === Number(field(`adjustment${index}After`).value) * (field(`adjustment${index}Unit`).value === "years" ? 12 : 1));
+      const calculated = Array.isArray(result.adjustmentResults) ? result.adjustmentResults.find((item) => item.afterMonths === (change && change.afterMonths)) : null;
+      const mode = selected(`adjustment${index}Mode`);
+      const value = mode === "payment" ? calculated && calculated.amortizationRate : calculated && calculated.monthlyPayment;
+      document.getElementById(`adjustment${index}-derived-value`).textContent = value == null ? "–" : mode === "payment" ? percentText(value) : money(value);
+    });
   }
   function renderCharts(result, loanAmount) {
     if (!loanAmount || !result.schedule.length) {
@@ -229,7 +275,10 @@
     try {
       const state = JSON.parse(savedState);
       if (!state.fields || typeof state.fields !== "object") return;
-      const radioOptions = { costMode: ["items", "total"], paymentMode: ["amortization", "payment"] };
+      const radioOptions = {
+        costMode: ["items", "total"], paymentMode: ["amortization", "payment"],
+        adjustment1Mode: ["payment", "amortization"], adjustment2Mode: ["payment", "amortization"]
+      };
       Array.from(form.elements).forEach((element) => {
         if (!element.name) return;
         const savedValue = state.fields[element.name];
@@ -267,7 +316,17 @@
     const normalized = { ...inputs };
     delete normalized.monthlyExtra;
     if (Array.isArray(normalized.rateChanges)) {
-      normalized.rateChanges = normalized.rateChanges.map((change) => ({ ...change, annualExtra: change.annualExtra ?? 0 }));
+      const initialPayment = normalized.paymentMode === "payment"
+        ? Number(normalized.monthlyPayment)
+        : Number(normalized.loanAmount) * (Number(normalized.annualInterestRate) + Number(normalized.initialAmortizationRate)) / 1200;
+      let previousPayment = initialPayment;
+      normalized.rateChanges = normalized.rateChanges.map((change) => {
+        const legacyChange = change.paymentMode === undefined && change.amortizationRate === undefined;
+        const paymentMode = change.paymentMode || (change.amortizationRate != null ? "amortization" : "payment");
+        const monthlyPayment = change.monthlyPayment ?? (legacyChange ? previousPayment : null);
+        if (monthlyPayment != null) previousPayment = monthlyPayment;
+        return { ...change, paymentMode, annualInterestRate: change.annualInterestRate ?? null, monthlyPayment, amortizationRate: change.amortizationRate ?? null, annualExtra: change.annualExtra ?? 0 };
+      });
     }
     return normalized;
   }
@@ -289,7 +348,11 @@
     const adjustmentCount = Math.max(0, ...comparedScenarios.map((item) => Array.isArray(item.inputs.rateChanges) ? item.inputs.rateChanges.length : 0));
     const adjustmentRows = Array.from({ length: adjustmentCount }, (_, index) => [
       `Anpassung ${index + 1}`,
-      (item) => formatScenarioAdjustment(item.inputs.rateChanges[index]),
+      (item) => {
+        const change = item.inputs.rateChanges[index];
+        const calculated = Array.isArray(item.result.adjustmentResults) ? item.result.adjustmentResults.find((entry) => change && entry.afterMonths === change.afterMonths) : null;
+        return formatScenarioAdjustment(change, calculated);
+      },
       "adjustment-cell"
     ]);
     const outputRows = [
@@ -313,11 +376,13 @@
     const remainingMonths = months % 12;
     return [years ? `${years} Jahr${years === 1 ? "" : "e"}` : "", remainingMonths ? `${remainingMonths} Monat${remainingMonths === 1 ? "" : "e"}` : ""].filter(Boolean).join(" ");
   }
-  function formatScenarioAdjustment(change) {
+  function formatScenarioAdjustment(change, calculated) {
     if (!change) return "Keine Anpassung";
     const values = [
       change.annualInterestRate == null ? "Sollzins unverändert" : `Sollzins ${percentText(change.annualInterestRate)}`,
-      change.monthlyPayment == null ? "Rate unverändert" : `Rate ${money(change.monthlyPayment)}`,
+      change.paymentMode === "amortization"
+        ? `Tilgung ${percentText(change.amortizationRate)} vorgegeben · Rate ${calculated ? money(calculated.monthlyPayment) : "–"} berechnet`
+        : `Rate ${money(change.monthlyPayment)} vorgegeben · Tilgung ${calculated ? percentText(calculated.amortizationRate) : "–"} berechnet`,
       change.annualExtra == null ? "Sondertilgung unverändert" : `Sondertilgung ${money(change.annualExtra)}/Jahr`
     ];
     return `<div class="adjustment-compact"><strong>Nach ${formatDuration(change.afterMonths)}</strong><span>${values.join(" · ")}</span></div>`;
@@ -336,7 +401,10 @@
       field(`adjustment${index}Unit`).dataset.previousUnit = field(`adjustment${index}Unit`).value;
       field(`adjustment${index}After`).value = change ? String(useYears ? change.afterMonths / 12 : change.afterMonths) : String(index * 10);
       field(`adjustment${index}AnnualRate`).value = change && change.annualInterestRate !== null ? String(change.annualInterestRate) : "";
+      const mode = change ? change.paymentMode || "payment" : "payment";
+      form.querySelector(`input[name="adjustment${index}Mode"][value="${mode}"]`).checked = true;
       field(`adjustment${index}Payment`).value = change && change.monthlyPayment !== null ? String(change.monthlyPayment) : "";
+      field(`adjustment${index}Amortization`).value = change && change.amortizationRate !== null ? String(change.amortizationRate) : "";
       field(`adjustment${index}AnnualExtra`).value = change ? String(change.annualExtra ?? 0) : "";
     });
     render();
@@ -472,10 +540,19 @@
     return changes.every((change) => {
       if (!change || !Number.isInteger(change.afterMonths) || change.afterMonths < 1 || change.afterMonths > 1199 || usedMonths.has(change.afterMonths)) return false;
       usedMonths.add(change.afterMonths);
-      const validRate = change.annualInterestRate === null || Number.isFinite(change.annualInterestRate) && change.annualInterestRate >= 0 && change.annualInterestRate <= 100;
-      const validPayment = change.monthlyPayment === null || Number.isFinite(change.monthlyPayment) && change.monthlyPayment >= 0;
+      const legacyChange = change.paymentMode === undefined && change.amortizationRate === undefined;
+      const modeIsValid = legacyChange || ["payment", "amortization"].includes(change.paymentMode);
+      const validRate = change.annualInterestRate == null || Number.isFinite(change.annualInterestRate) && change.annualInterestRate >= 0 && change.annualInterestRate <= 100;
+      const validPayment = change.monthlyPayment == null || Number.isFinite(change.monthlyPayment) && change.monthlyPayment >= 0;
+      const validAmortization = change.amortizationRate == null || Number.isFinite(change.amortizationRate) && change.amortizationRate >= 0 && change.amortizationRate <= 100;
       const validExtra = change.annualExtra == null || Number.isFinite(change.annualExtra) && change.annualExtra >= 0;
-      return validRate && validPayment && validExtra && (change.annualInterestRate !== null || change.monthlyPayment !== null || change.annualExtra != null);
+      const paymentModeIsValid = legacyChange
+        ? change.monthlyPayment == null || Number.isFinite(change.monthlyPayment) && change.monthlyPayment >= 0
+        : change.paymentMode === "payment"
+          ? change.monthlyPayment != null && change.amortizationRate == null
+          : change.amortizationRate != null && change.monthlyPayment == null;
+      const extraIsValid = legacyChange || change.annualExtra != null;
+      return modeIsValid && validRate && validPayment && validAmortization && validExtra && paymentModeIsValid && extraIsValid;
     });
   }
 
