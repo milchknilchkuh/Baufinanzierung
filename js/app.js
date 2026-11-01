@@ -3,6 +3,8 @@
 
   const form = document.getElementById("calculator-form");
   const storageKey = "baufinanzierung-scenarios-v1";
+  const currentStateCookie = "baufinanzierung-current-v1";
+  const currentStateFallback = "baufinanzierung-current-fallback-v1";
   const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
   const percent = new Intl.NumberFormat("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const field = (name) => form.elements.namedItem(name);
@@ -99,6 +101,50 @@
     document.getElementById("milestone-rows").innerHTML = [5, 10, 15, 20].map((year) => `<tr><td>Nach ${year} Jahren</td><td>${money(result.milestones[year])}</td></tr>`).join("");
     document.getElementById("schedule-rows").innerHTML = result.schedule.map((row) => `<tr><td>${row.year}</td><td>${money(row.remainingDebt)}</td><td>${money(row.principalPaid)}</td></tr>`).join("") || '<tr><td colspan="3">Kein Darlehen</td></tr>';
   }
+  function collectFormState() {
+    const fields = {};
+    Array.from(form.elements).forEach((element) => {
+      if (!element.name) return;
+      if (element.type === "radio") {
+        if (element.checked) fields[element.name] = element.value;
+      } else fields[element.name] = element.value;
+    });
+    return { fields, scenarioName: document.getElementById("scenario-name").value };
+  }
+  function saveCurrentState() {
+    const state = JSON.stringify(collectFormState());
+    const encoded = encodeURIComponent(state);
+    try { document.cookie = `${currentStateCookie}=${encoded}; max-age=31536000; path=/; SameSite=Lax`; }
+    catch {}
+    try { localStorage.setItem(currentStateFallback, state); }
+    catch { document.getElementById("scenario-status").textContent = "Der aktuelle Stand kann in diesem Browser nicht automatisch gespeichert werden."; }
+  }
+  function restoreCurrentState() {
+    let savedState = null;
+    try {
+      const savedCookie = document.cookie.split("; ").find((part) => part.startsWith(`${currentStateCookie}=`));
+      if (savedCookie) savedState = decodeURIComponent(savedCookie.slice(currentStateCookie.length + 1));
+    } catch {}
+    if (!savedState) {
+      try { savedState = localStorage.getItem(currentStateFallback); }
+      catch {}
+    }
+    if (!savedState) return;
+    try {
+      const state = JSON.parse(savedState);
+      if (!state.fields || typeof state.fields !== "object") return;
+      const radioOptions = { costMode: ["items", "total"], paymentMode: ["amortization", "payment"] };
+      Array.from(form.elements).forEach((element) => {
+        if (!element.name) return;
+        const savedValue = state.fields[element.name];
+        if (typeof savedValue !== "string") return;
+        if (element.type === "radio") {
+          if (radioOptions[element.name]?.includes(savedValue)) element.checked = element.value === savedValue;
+        } else element.value = savedValue;
+      });
+      if (typeof state.scenarioName === "string") document.getElementById("scenario-name").value = state.scenarioName.slice(0, 60);
+    } catch {}
+  }
   function loadScenarios() {
     try {
       const stored = JSON.parse(localStorage.getItem(storageKey) || "[]");
@@ -151,16 +197,20 @@
     form.querySelector(`input[name="costMode"][value="${inputs.costMode}"]`).checked = true;
     form.querySelector(`input[name="paymentMode"][value="${inputs.paymentMode}"]`).checked = true;
     render();
+    saveCurrentState();
   }
 
   form.addEventListener("input", (event) => {
     if (["purchasePrice", "landCost", "constructionCost", "ancillaryValue", "otherCost", "totalCostInput", "equity"].includes(event.target.name)) updateLoanFromCosts();
     render();
+    saveCurrentState();
   });
   form.addEventListener("change", (event) => {
     if (["costMode", "ancillaryMode", "equity"].includes(event.target.name)) updateLoanFromCosts();
     render();
+    saveCurrentState();
   });
+  document.getElementById("scenario-name").addEventListener("input", saveCurrentState);
   document.getElementById("save-scenario").addEventListener("click", () => {
     if (!currentResult || currentResult.error || !inputsAreValid()) return;
     const name = document.getElementById("scenario-name").value.trim() || `Szenario ${scenarios.length + 1}`;
@@ -173,7 +223,7 @@
     if (!button) return;
     const index = Number(button.dataset.index);
     const action = button.dataset.action;
-    if (action === "load") { applyInputs(scenarios[index].inputs); document.getElementById("scenario-name").value = scenarios[index].name; }
+    if (action === "load") { applyInputs(scenarios[index].inputs); document.getElementById("scenario-name").value = scenarios[index].name; saveCurrentState(); }
     if (action === "duplicate") { const copy = JSON.parse(JSON.stringify(scenarios[index])); copy.name = `${copy.name} (Kopie)`; scenarios.splice(index + 1, 0, copy); persistScenarios(); renderScenarios(); }
     if (action === "delete") { scenarios.splice(index, 1); persistScenarios(); renderScenarios(); }
   });
@@ -236,6 +286,7 @@
       persistScenarios();
       renderScenarios();
       document.getElementById("scenario-name").value = typeof project.name === "string" ? project.name.slice(0, 60) : "Baufinanzierung";
+      saveCurrentState();
       document.getElementById("scenario-status").textContent = `Projekt „${document.getElementById("scenario-name").value}“ wurde geladen.`;
     } catch (error) {
       document.getElementById("scenario-status").textContent = `Projekt konnte nicht geladen werden: ${error.message}`;
@@ -250,6 +301,7 @@
     return numberNames.every((name) => Number.isFinite(inputs[name]) && inputs[name] >= 0) && inputs.annualInterestRate <= 100 && inputs.initialAmortizationRate <= 100;
   }
 
+  restoreCurrentState();
   render();
   renderScenarios();
 })();
