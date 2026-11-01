@@ -451,6 +451,24 @@
     render();
     saveCurrentState();
   });
+  document.getElementById("reset-defaults").addEventListener("click", () => {
+    if (!window.confirm("Möchtest du wirklich alle aktuellen Eingaben auf die Standardwerte zurücksetzen?")) return;
+    form.reset();
+    document.getElementById("scenario-name").value = "Szenario 1";
+    [1, 2].forEach((index) => { field(`adjustment${index}Unit`).dataset.previousUnit = field(`adjustment${index}Unit`).value; });
+    updateLoanFromCosts();
+    resultView = "chart";
+    document.getElementById("chart-view").hidden = false;
+    document.getElementById("table-view").hidden = true;
+    document.querySelectorAll(".view-switch button").forEach((button) => {
+      const isActive = button.dataset.resultView === resultView;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    });
+    render();
+    saveCurrentState();
+    document.getElementById("scenario-status").textContent = "Die Eingaben wurden auf die Standardwerte zurückgesetzt.";
+  });
   document.querySelector(".view-switch").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-result-view]");
     if (!button) return;

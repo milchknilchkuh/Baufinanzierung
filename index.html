@@ -10,11 +10,12 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#top" id="top"><span class="brand-mark">B</span><span>Baufinanzierung</span></a>
+    <a class="brand" href="#top" id="top"><span class="brand-mark">B</span><span class="brand-label">Baufinanzierung</span></a>
     <span class="topbar-caption">Persönliches Planungswerkzeug</span>
     <div class="project-actions">
-      <button type="button" class="button button-quiet" id="load-project">JSON laden</button>
-      <button type="button" class="button button-primary" id="save-project">Speichern unter…</button>
+      <button type="button" class="button button-quiet" id="reset-defaults"><span class="desktop-label">Zurücksetzen</span><span class="mobile-label">Reset</span></button>
+      <button type="button" class="button button-quiet" id="load-project">Projekt laden</button>
+      <button type="button" class="button button-primary" id="save-project"><span class="desktop-label">Speichern unter…</span><span class="mobile-label">Speichern</span></button>
       <input id="project-file" type="file" accept="application/json,.json" hidden>
     </div>
   </header>
