@@ -30,7 +30,7 @@
           <label><input type="radio" name="costMode" value="total"> Gesamtkosten</label>
         </div>
         <div id="item-cost-fields" class="input-grid">
-          <label class="field"><span>Kaufpreis der Immobilie</span><span class="input-wrap"><input name="purchasePrice" type="number" min="0" step="1000" value="350000"><span>€</span></span></label>
+          <label class="field"><span>Kaufpreis der Immobilie</span><span class="input-wrap"><input name="purchasePrice" type="number" min="0" step="1000" value="600000"><span>€</span></span></label>
           <label class="field"><span>Grundstückskosten</span><span class="input-wrap"><input name="landCost" type="number" min="0" step="1000" value="0"><span>€</span></span></label>
           <label class="field"><span>Bau- oder Sanierungskosten</span><span class="input-wrap"><input name="constructionCost" type="number" min="0" step="1000" value="0"><span>€</span></span></label>
           <label class="field"><span>Kaufnebenkosten berechnen als</span><select name="ancillaryMode"><option value="percent">Prozent vom Kaufpreis</option><option value="amount">Fester Betrag</option></select></label>
@@ -46,9 +46,9 @@
       <section class="panel" aria-labelledby="equity-heading">
         <div class="section-heading"><span class="step">02</span><div><h2 id="equity-heading">Eigenkapital</h2><p>Der Finanzierungsbedarf wird standardmäßig aus Kosten minus Eigenkapital berechnet.</p></div></div>
         <div class="input-grid">
-          <label class="field"><span>Eingesetztes Eigenkapital</span><span class="input-wrap"><input name="equity" type="number" min="0" step="1000" value="50000"><span>€</span></span></label>
+          <label class="field"><span>Eingesetztes Eigenkapital</span><span class="input-wrap"><input name="equity" type="number" min="0" step="1000" value="100000"><span>€</span></span></label>
           <div class="field"><span>Darlehensbetrag</span><span class="input-wrap"><output id="loan-amount-display">–</output><span>€</span></span><small>Gesamtkosten abzüglich Eigenkapital.</small></div>
-          <input name="loanAmount" type="hidden" value="335000">
+          <input name="loanAmount" type="hidden" value="560000">
         </div>
       </section>
 
@@ -61,7 +61,7 @@
         <div class="input-grid">
           <label class="field"><span>Sollzinssatz pro Jahr</span><span class="input-wrap"><input name="annualInterestRate" type="number" min="0" max="100" step="0.01" value="3.5"><span>%</span></span></label>
           <label class="field" id="amortization-field"><span>Anfangstilgung pro Jahr</span><span class="input-wrap"><input name="initialAmortizationRate" type="number" min="0" max="100" step="0.01" value="2"><span>%</span></span></label>
-          <label class="field" id="payment-field" hidden><span>Monatliche Rate</span><span class="input-wrap"><input name="monthlyPaymentInput" type="number" min="0" step="10" value="1531.25"><span>€</span></span></label>
+          <label class="field" id="payment-field" hidden><span>Monatliche Rate</span><span class="input-wrap"><input name="monthlyPaymentInput" type="number" min="0" step="10" value="2566.67"><span>€</span></span></label>
           <label class="field"><span>Jährliche Sondertilgung</span><span class="input-wrap"><input name="annualExtra" type="number" min="0" step="100" value="0"><span>€</span></span><small>Modelliert jeweils am Ende jedes 12. Monats.</small></label>
         </div>
       </section>
