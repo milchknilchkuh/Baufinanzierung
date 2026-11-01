@@ -480,6 +480,12 @@
     saveCurrentState();
     document.getElementById("scenario-status").textContent = "Standardwerte wiederhergestellt; gespeicherte Szenarien gelöscht.";
   });
+  const helpDialog = document.getElementById("help-dialog");
+  document.getElementById("show-help").addEventListener("click", () => helpDialog.showModal());
+  document.getElementById("close-help").addEventListener("click", () => helpDialog.close());
+  helpDialog.addEventListener("click", (event) => {
+    if (event.target === helpDialog) helpDialog.close();
+  });
   document.querySelector(".view-switch").addEventListener("click", (event) => {
     const button = event.target.closest("button[data-result-view]");
     if (!button) return;

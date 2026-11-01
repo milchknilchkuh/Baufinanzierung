@@ -14,6 +14,7 @@
     <span class="topbar-caption">Persönliches Planungswerkzeug</span>
     <div class="project-actions">
       <button type="button" class="button button-quiet" id="reset-defaults"><span class="desktop-label">Zurücksetzen</span><span class="mobile-label">Reset</span></button>
+      <button type="button" class="button button-quiet" id="show-help">Hilfe</button>
       <button type="button" class="button button-quiet" id="load-project">Projekt laden</button>
       <button type="button" class="button button-primary" id="save-project"><span class="desktop-label">Speichern unter…</span><span class="mobile-label">Speichern</span></button>
       <input id="project-file" type="file" accept="application/json,.json" hidden>
@@ -135,6 +136,87 @@
     </div>
     </div>
   </main>
+  <dialog id="help-dialog" class="help-dialog" aria-labelledby="help-title">
+    <header class="help-dialog-header">
+      <div><p class="help-kicker">Baufinanzierungsrechner</p><h2 id="help-title">Hilfe und Berechnungsmodell</h2></div>
+      <button type="button" class="button button-quiet" id="close-help" aria-label="Hilfe schließen">Schließen <span aria-hidden="true">×</span></button>
+    </header>
+    <div class="help-content">
+      <p class="help-intro">Der Rechner macht Finanzierungsszenarien vergleichbar. Alle Angaben und Berechnungen bleiben in diesem Browser. Die Ergebnisse sind eine vereinfachte Modellrechnung und keine Finanzberatung.</p>
+
+      <section class="help-section" aria-labelledby="help-flow-heading">
+        <h3 id="help-flow-heading">So läuft die Berechnung ab</h3>
+        <svg class="help-timeline" viewBox="0 0 760 132" role="img" aria-labelledby="timeline-title timeline-desc">
+          <title id="timeline-title">Zeitachse eines Darlehens mit zwei möglichen Anpassungen</title>
+          <desc id="timeline-desc">Start der Finanzierung, erste Anpassung, zweite Anpassung und vollständige Rückzahlung.</desc>
+          <line x1="54" y1="48" x2="704" y2="48" class="timeline-line"/>
+          <circle cx="70" cy="48" r="9" class="timeline-start"/><circle cx="285" cy="48" r="8" class="timeline-change"/><circle cx="485" cy="48" r="8" class="timeline-change"/><circle cx="690" cy="48" r="9" class="timeline-end"/>
+          <text x="70" y="82" text-anchor="middle" class="timeline-title">Start</text><text x="70" y="101" text-anchor="middle" class="timeline-caption">Rate oder Tilgung</text>
+          <text x="285" y="82" text-anchor="middle" class="timeline-title">Anpassung 1</text><text x="285" y="101" text-anchor="middle" class="timeline-caption">nach N Monaten/Jahren</text>
+          <text x="485" y="82" text-anchor="middle" class="timeline-title">Anpassung 2</text><text x="485" y="101" text-anchor="middle" class="timeline-caption">optional</text>
+          <text x="690" y="82" text-anchor="middle" class="timeline-title">Rückzahlung</text><text x="690" y="101" text-anchor="middle" class="timeline-caption">Restschuld 0 €</text>
+        </svg>
+        <p>Jede Anpassung greift nach der eingegebenen Zahl regulärer Monatsraten, ab dem Folgemonat. Zum Beispiel wird eine Anpassung nach 120 Monatsraten ab dem 121. Monat angewendet.</p>
+      </section>
+
+      <div class="help-grid">
+        <section class="help-section">
+          <h3>1. Immobilie, Kosten und Eigenkapital</h3>
+          <p>Du kannst einzelne Kosten erfassen oder direkt Gesamtkosten angeben. Bei einzelnen Kosten werden Kaufpreis, Grundstück, Bau- oder Sanierungskosten, weitere Kosten und Kaufnebenkosten addiert. Prozentuale Kaufnebenkosten beziehen sich auf den Kaufpreis.</p>
+          <div class="help-formula">Darlehensbetrag = Gesamtkosten − Eigenkapital</div>
+          <p>Der Darlehensbetrag wird aus dieser Differenz berechnet und ist nicht direkt editierbar.</p>
+        </section>
+
+        <section class="help-section">
+          <h3>2. Rate und Anfangstilgung</h3>
+          <p>Die Monatsrate ist voreingestellt. Du kannst alternativ die Anfangstilgung pro Jahr vorgeben. Der Rechner berechnet jeweils die andere Größe.</p>
+          <div class="help-formula">Monatsrate = Darlehen × (Sollzins + Anfangstilgung) ÷ 12</div>
+          <p>Bei Monatsrateneingabe wird die Anfangstilgung aus der Rate und dem Sollzins abgeleitet. Eine zusätzliche jährliche Sondertilgung wird separat erfasst und am Ende jedes 12. Monats berücksichtigt.</p>
+        </section>
+
+        <section class="help-section">
+          <h3>3. Finanzierungsanpassungen</h3>
+          <p>Du kannst bis zu zwei Änderungen planen. Gib den Zeitpunkt in Monaten oder Jahren an. Für jede Anpassung ist die neue jährliche Sondertilgung erforderlich; 0 € beendet sie.</p>
+          <ul>
+            <li>Der Sollzinssatz kann geändert oder unverändert gelassen werden.</li>
+            <li>Standardmäßig gibst du eine neue Monatsrate vor; daraus wird die Tilgung berechnet.</li>
+            <li>Alternativ gibst du eine neue Tilgung vor; daraus wird die Monatsrate berechnet.</li>
+            <li>Die jeweils andere Größe wird aus der Restschuld und dem geltenden Sollzinssatz zum Anpassungszeitpunkt berechnet.</li>
+          </ul>
+          <p>Eine Monatsrate, die die laufenden Zinsen nicht deckt, wird als nicht tragfähig mit negativer Tilgung gemeldet.</p>
+        </section>
+
+        <section class="help-section">
+          <h3>4. Ergebnisse und Diagramme</h3>
+          <p>Die Ergebnisse zeigen unter anderem Monatsrate, erste Zins- und Tilgungsanteile, Restschuld nach 5, 10, 15 und 20 Jahren, Gesamtlaufzeit, Gesamtzinsen und Rückzahlung.</p>
+          <ul>
+            <li><strong>Restschuld:</strong> verbleibender Darlehensbetrag im Zeitverlauf.</li>
+            <li><strong>Tilgungsverlauf:</strong> bis zum jeweiligen Zeitpunkt insgesamt getilgter Betrag.</li>
+            <li>Die gestrichelte Linie markiert 10 Jahre; „Anp. 1“ und „Anp. 2“ markieren wirksame Anpassungen.</li>
+            <li>Überfahre einen Datenpunkt, um Zeitpunkt und Wert direkt zu sehen. Mit „Tabelle“ wechselst du zur tabellarischen Ansicht.</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h3>5. Szenarien vergleichen</h3>
+          <p>Speichere die aktuellen Angaben unter einem Namen. Der Vergleich trennt Eingaben und Ergebnisse und zeigt auch Zeitpunkt und Werte der Finanzierungsanpassungen. Szenarien lassen sich laden, duplizieren und löschen.</p>
+          <p>Die Szenarien werden lokal in diesem Browser gespeichert. Sie sind unabhängig von einer exportierten Projektdatei.</p>
+        </section>
+
+        <section class="help-section">
+          <h3>6. Projekte und Zurücksetzen</h3>
+          <p><strong>Projekt speichern</strong> exportiert die aktuellen Angaben und Szenarien in eine JSON-Datei. <strong>Projekt laden</strong> liest eine solche Datei wieder ein und ersetzt damit die aktuell geladenen Angaben und Szenarien.</p>
+          <p><strong>Zurücksetzen</strong> setzt die Eingaben auf Standardwerte zurück und löscht die lokal gespeicherten Szenarien. Vorher erscheint eine Sicherheitsabfrage.</p>
+          <p>Der Rechner merkt sich außerdem den aktuellen Stand lokal und stellt ihn beim nächsten Öffnen wieder her.</p>
+        </section>
+      </div>
+
+      <section class="help-section help-limits">
+        <h3>Vereinfachungen und Grenzen</h3>
+        <p>Die monatlichen Zinsen werden mit dem jeweils geltenden Jahreszinssatz geteilt durch 12 berechnet. Die letzte Rate wird auf den noch offenen Betrag begrenzt. Gebühren, bankindividuelle Bedingungen, Zinsbindungsende und Anschlussfinanzierung werden nicht modelliert. Änderungen von Zinssatz und Rate sind nur berücksichtigt, wenn du sie ausdrücklich als Anpassung eingibst.</p>
+      </section>
+    </div>
+  </dialog>
   <script src="js/calculations.js"></script>
   <script src="js/app.js"></script>
 </body>
