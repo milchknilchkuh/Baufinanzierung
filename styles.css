@@ -141,6 +141,21 @@ td:last-child, th:last-child { text-align: right; }
 .scenario-item strong { overflow-wrap: anywhere; }
 .scenario-buttons { display: flex; flex-shrink: 0; gap: 5px; }
 .comparison-table { margin-top: 12px; }
+.scenario-view-switch { margin-top: 10px; flex-wrap: wrap; }
+.scenario-view-panel { min-width: 0; }
+.scenario-chart-card { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.scenario-chart-card h3 { margin: 0 0 2px; font-size: .9rem; }
+.scenario-chart-card > .muted { margin: 0; font-size: .78rem; }
+.scenario-chart { margin-top: 12px; overflow-x: auto; }
+.scenario-line-chart { display: block; width: min(100%, 760px); height: auto; overflow: visible; }
+.scenario-chart-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px 15px; margin-top: 8px; }
+.scenario-legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: .7rem; }
+.scenario-legend-item i { width: 10px; height: 10px; border-radius: 50%; background: var(--scenario-color); }
+.scenario-line-chart .chart-axis-label { font-size: 10px; }
+.scenario-chart-point { cursor: crosshair; pointer-events: all; }
+.scenario-chart-hover { pointer-events: none; }
+.scenario-chart-hover-point { stroke: #111; stroke-width: 1; pointer-events: none; }
+.scenario-chart-hover-label { fill: #172a32; font: 10px system-ui, sans-serif; font-weight: 650; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
 .comparison-table td:first-child, .comparison-table th:first-child { text-align: left; font-weight: 650; }
 .comparison-table td:last-child, .comparison-table th:last-child { text-align: left; }
 .comparison-table .comparison-section-row th { padding: 8px 10px; color: var(--teal); background: #eaf4f2; text-align: left; font-size: .76rem; letter-spacing: .04em; text-transform: uppercase; }

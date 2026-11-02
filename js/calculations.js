@@ -57,6 +57,7 @@
     let totalPaid = 0;
     let months = 0;
     const schedule = [];
+    const monthlySchedule = [];
     const milestones = {};
     const interestMilestones = {};
     const adjustmentResults = [];
@@ -95,6 +96,7 @@
       totalInterest += interest;
       totalPaid += paid;
       months += 1;
+      monthlySchedule.push({ month: months, remainingDebt, principalPaid: loanAmount - remainingDebt });
       if (months % 12 === 0 || remainingDebt === 0) schedule.push({ year: Math.ceil(months / 12), month: months, remainingDebt, principalPaid: loanAmount - remainingDebt });
       if ([60, 120, 180, 240].includes(months)) milestones[months / 12] = remainingDebt;
       if (months % 12 === 0) interestMilestones[months / 12] = totalInterest;
@@ -102,11 +104,11 @@
     if (remainingDebt > 0) return { error: "Mit diesen Zahlungswerten ist die vollständige Rückzahlung innerhalb von 100 Jahren nicht erreichbar." };
     [5, 10, 15, 20].forEach((year) => { if (milestones[year] === undefined) milestones[year] = 0; });
     [5, 10, 15, 20].forEach((year) => { if (interestMilestones[year] === undefined) interestMilestones[year] = totalInterest; });
-    return { loanAmount, monthlyPayment, basePayment, firstInterest, firstPrincipal: Math.max(0, Math.min(loanAmount, monthlyPayment - firstInterest)), totalInterest, totalPaid, months, years: months / 12, schedule, milestones, interestMilestones, adjustmentResults, negativeAmortization: false };
+    return { loanAmount, monthlyPayment, basePayment, firstInterest, firstPrincipal: Math.max(0, Math.min(loanAmount, monthlyPayment - firstInterest)), totalInterest, totalPaid, months, years: months / 12, schedule, monthlySchedule, milestones, interestMilestones, adjustmentResults, negativeAmortization: false };
   }
 
   function emptyResult(monthlyPayment) {
-    return { loanAmount: 0, monthlyPayment, basePayment: monthlyPayment, firstInterest: 0, firstPrincipal: 0, totalInterest: 0, totalPaid: 0, months: 0, years: 0, schedule: [], milestones: { 5: 0, 10: 0, 15: 0, 20: 0 }, interestMilestones: { 5: 0, 10: 0, 15: 0, 20: 0 }, adjustmentResults: [], negativeAmortization: false };
+    return { loanAmount: 0, monthlyPayment, basePayment: monthlyPayment, firstInterest: 0, firstPrincipal: 0, totalInterest: 0, totalPaid: 0, months: 0, years: 0, schedule: [], monthlySchedule: [], milestones: { 5: 0, 10: 0, 15: 0, 20: 0 }, interestMilestones: { 5: 0, 10: 0, 15: 0, 20: 0 }, adjustmentResults: [], negativeAmortization: false };
   }
 
   const api = { calculateLoan };

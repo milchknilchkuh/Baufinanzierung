@@ -130,7 +130,12 @@
       <div class="section-heading"><span class="step">05</span><div><h2 id="scenarios-heading">Szenarien vergleichen</h2><p>Speichere Varianten lokal in diesem Browser und vergleiche sie nebeneinander.</p></div></div>
       <div class="scenario-actions"><label class="field scenario-name"><span>Name des Szenarios</span><input id="scenario-name" type="text" maxlength="60" value="Szenario 1"></label><button type="button" class="button button-primary" id="save-scenario">Szenario speichern</button></div>
       <p id="scenario-status" class="muted" role="status"></p>
-      <div class="table-scroll"><table class="comparison-table"><thead id="comparison-head"></thead><tbody id="comparison-body"></tbody></table></div>
+      <div class="view-switch scenario-view-switch" role="tablist" aria-label="Szenarien vergleichen">
+        <button type="button" class="view-button active" id="scenario-tab-table" role="tab" aria-selected="true" aria-controls="scenario-table-view" data-scenario-view="table">Tabelle</button>
+        <button type="button" class="view-button" id="scenario-tab-balance" role="tab" aria-selected="false" aria-controls="scenario-balance-view" data-scenario-view="balance">Restschuldverlauf</button>
+      </div>
+      <div id="scenario-table-view" class="scenario-view-panel" role="tabpanel" aria-labelledby="scenario-tab-table"><div class="table-scroll"><table class="comparison-table"><thead id="comparison-head"></thead><tbody id="comparison-body"></tbody></table></div></div>
+      <div id="scenario-balance-view" class="scenario-view-panel" role="tabpanel" aria-labelledby="scenario-tab-balance" hidden><div class="scenario-chart-card"><h3>Restschuld im Zeitverlauf</h3><p class="muted">Jährlicher Verlauf der gespeicherten Szenarien</p><div id="scenario-balance-chart" class="scenario-chart"></div></div></div>
       <div id="scenario-list" class="scenario-list"></div>
     </section>
     </div>

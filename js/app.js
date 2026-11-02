@@ -11,6 +11,7 @@
   let scenarios = loadScenarios();
   let currentResult = null;
   let resultView = "chart";
+  let scenarioView = "table";
 
   function money(value) { return euro.format(Number.isFinite(value) ? value : 0); }
   function percentText(value) { return `${percent.format(value)} %`; }
@@ -388,7 +389,91 @@
       ? `<tr class="comparison-subsection-row"><th colspan="${columnCount}">Anpassungen während der Laufzeit</th></tr>${renderRows(adjustmentRows)}`
       : "";
     document.getElementById("comparison-body").innerHTML = `<tr class="comparison-section-row"><th colspan="${columnCount}">Eingaben</th></tr>${renderRows(inputRows)}${adjustmentSection}<tr class="comparison-section-row"><th colspan="${columnCount}">Ergebnisse</th></tr>${renderRows(outputRows)}`;
+    renderScenarioCharts(comparedScenarios);
     document.getElementById("scenario-list").innerHTML = scenarios.map((item, index) => `<div class="scenario-item"><strong>${escapeHtml(item.name)}</strong><div class="scenario-buttons"><button type="button" class="button button-small" data-action="load" data-index="${index}">Laden</button><button type="button" class="button button-small" data-action="duplicate" data-index="${index}">Duplizieren</button><button type="button" class="button button-small" data-action="delete" data-index="${index}">Löschen</button></div></div>`).join("");
+  }
+  function renderScenarioCharts(comparedScenarios) {
+    const palette = ["#16796f", "#3979a8", "#ba6652", "#8064a2", "#b17a19", "#4e7a3d", "#cc5b85", "#52717b"];
+    const valid = comparedScenarios.filter((item) => !item.result.error);
+    const balanceContainer = document.getElementById("scenario-balance-chart");
+    if (!valid.length) {
+      const empty = '<p class="chart-empty">Speichere mindestens ein berechenbares Szenario, um das Diagramm anzuzeigen.</p>';
+      balanceContainer.innerHTML = empty;
+      return;
+    }
+    const maxMonths = Math.max(1, ...valid.map((item) => item.result.months));
+    const maxBalance = Math.max(1, ...valid.map((item) => Number(item.inputs.loanAmount) || 0));
+    const width = 620;
+    const left = 84;
+    const right = 18;
+    const top = 16;
+    const bottom = 38;
+    const plotWidth = width - left - right;
+    const plotHeight = 220 - top - bottom;
+    const x = (month) => left + month / maxMonths * plotWidth;
+    const y = (balance) => top + (1 - balance / maxBalance) * plotHeight;
+    const yValues = [maxBalance, maxBalance * 0.75, maxBalance / 2, maxBalance * 0.25, 0];
+    const grid = yValues.map((value) => `<g><line x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}" class="chart-gridline"/><text x="${left - 8}" y="${y(value) + 4}" text-anchor="end" class="chart-axis-label">${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(value)} €</text></g>`).join("");
+    const tickMonths = Array.from(new Set([0, Math.round(maxMonths / 4), Math.round(maxMonths / 2), Math.round(maxMonths * 3 / 4), maxMonths]));
+    const xTicks = tickMonths.map((month, index) => `<g><line x1="${x(month)}" y1="${top}" x2="${x(month)}" y2="${top + plotHeight}" class="chart-gridline chart-gridline-vertical"/><text x="${x(month)}" y="${top + plotHeight + 24}" text-anchor="${index === 0 ? "start" : index === tickMonths.length - 1 ? "end" : "middle"}" class="chart-axis-label">${month === 0 ? "0 Monate" : formatDuration(month)}</text></g>`).join("");
+    const lines = valid.map((item) => {
+      const color = palette[comparedScenarios.indexOf(item) % palette.length];
+      const history = [{ month: 0, remainingDebt: Number(item.inputs.loanAmount) || 0 }, ...item.result.monthlySchedule];
+      if (item.result.months < maxMonths) history.push({ month: maxMonths, remainingDebt: 0 });
+      const points = history.map((row) => `${x(row.month).toFixed(1)},${y(row.remainingDebt).toFixed(1)}`).join(" ");
+      const scenarioIndex = comparedScenarios.indexOf(item);
+      const markers = history.map((row) => `<circle class="scenario-chart-point" cx="${x(row.month).toFixed(1)}" cy="${y(row.remainingDebt).toFixed(1)}" r="5" fill="transparent" data-color="${color}" data-scenario-index="${scenarioIndex}" tabindex="${row.month === 0 || row.month % 12 === 0 || row.month === item.result.months ? "0" : "-1"}" aria-label="${escapeHtml(item.name)}, ${formatDuration(row.month)}: ${money(row.remainingDebt)}" data-scenario="${escapeHtml(item.name)}" data-month="${row.month}" data-balance="${row.remainingDebt}"/>`).join("");
+      return `<g class="scenario-chart-series"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${markers}</g>`;
+    }).join("");
+    const legend = valid.map((item) => {
+      const color = palette[comparedScenarios.indexOf(item) % palette.length];
+      return `<span class="scenario-legend-item"><i style="--scenario-color:${color}"></i>${escapeHtml(item.name)} · ${formatDuration(item.result.months)}</span>`;
+    }).join("");
+    balanceContainer.innerHTML = `<svg class="scenario-line-chart" viewBox="0 0 ${width} 220" role="img" aria-label="Restschuldverlauf der gespeicherten Szenarien">${grid}${xTicks}${lines}<g class="scenario-chart-hover" hidden><circle class="scenario-chart-hover-point" r="2.5"/><text class="scenario-chart-hover-label"/></g></svg><div class="scenario-chart-legend">${legend}</div>`;
+    const hoverMark = balanceContainer.querySelector(".scenario-chart-hover");
+    const hoverPoint = hoverMark.querySelector(".scenario-chart-hover-point");
+    const hoverLabel = hoverMark.querySelector(".scenario-chart-hover-label");
+    const showScenarioTooltip = (point, pointerEvent) => {
+      const item = comparedScenarios[Number(point.dataset.scenarioIndex)];
+      let month = Number(point.dataset.month);
+      if (pointerEvent && item.result.months > 0) {
+        const svg = balanceContainer.querySelector(".scenario-line-chart");
+        const cursor = svg.createSVGPoint();
+        cursor.x = pointerEvent.clientX;
+        cursor.y = pointerEvent.clientY;
+        const svgCursor = cursor.matrixTransform(svg.getScreenCTM().inverse());
+        month = Math.max(0, Math.min(item.result.months, Math.round((svgCursor.x - left) / plotWidth * maxMonths)));
+      }
+      const row = month === 0 ? { remainingDebt: Number(item.inputs.loanAmount) || 0 } : item.result.monthlySchedule[month - 1];
+      const balance = row ? row.remainingDebt : 0;
+      const plotX = x(month);
+      const plotY = y(balance);
+      const color = point.dataset.color;
+      hoverMark.setAttribute("transform", `translate(${plotX},${plotY})`);
+      hoverPoint.setAttribute("fill", color);
+      hoverLabel.textContent = `${point.dataset.scenario} · ${formatDuration(month)} · Restschuld ${money(balance)}`;
+      hoverLabel.setAttribute("x", plotX > width - right - 190 ? "-7" : "7");
+      hoverLabel.setAttribute("text-anchor", plotX > width - right - 190 ? "end" : "start");
+      hoverLabel.setAttribute("y", plotY < top + 24 ? "14" : "-7");
+      hoverMark.removeAttribute("hidden");
+    };
+    balanceContainer.querySelectorAll(".scenario-chart-point").forEach((point) => {
+      point.addEventListener("pointerenter", (event) => showScenarioTooltip(point, event));
+      point.addEventListener("pointerleave", () => { hoverMark.setAttribute("hidden", ""); });
+      point.addEventListener("focus", () => showScenarioTooltip(point));
+      point.addEventListener("blur", () => { hoverMark.setAttribute("hidden", ""); });
+    });
+
+  }
+  function setScenarioView(view) {
+    scenarioView = view;
+    document.querySelectorAll("[data-scenario-view]").forEach((button) => {
+      const active = button.dataset.scenarioView === view;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll(".scenario-view-panel").forEach((panel) => { panel.hidden = panel.id !== `scenario-${view}-view`; });
   }
   function formatDuration(months) {
     if (!months) return "Sofort";
@@ -497,6 +582,21 @@
       viewButton.classList.toggle("active", isActive);
       viewButton.setAttribute("aria-pressed", String(isActive));
     });
+  });
+  document.querySelector(".scenario-view-switch").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-scenario-view]");
+    if (button) setScenarioView(button.dataset.scenarioView);
+  });
+  document.querySelector(".scenario-view-switch").addEventListener("keydown", (event) => {
+    const buttons = Array.from(document.querySelectorAll("[data-scenario-view]"));
+    const currentIndex = buttons.indexOf(document.activeElement);
+    const nextIndex = event.key === "ArrowRight" ? (currentIndex + 1) % buttons.length
+      : event.key === "ArrowLeft" ? (currentIndex - 1 + buttons.length) % buttons.length
+        : event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : -1;
+    if (nextIndex < 0) return;
+    event.preventDefault();
+    buttons[nextIndex].focus();
+    setScenarioView(buttons[nextIndex].dataset.scenarioView);
   });
   document.getElementById("scenario-name").addEventListener("input", saveCurrentState);
   document.getElementById("save-scenario").addEventListener("click", () => {
