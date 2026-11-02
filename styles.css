@@ -33,8 +33,8 @@ body { margin: 0; line-height: 1.45; }
 .project-actions { display: flex; gap: 8px; margin-left: auto; }
 .page-shell { width: min(1440px, 100% - 32px); margin: 0 auto; padding: 16px 0 32px; }
 .workspace { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr); align-items: start; gap: 16px; }
-.inputs-column { position: sticky; top: 74px; max-height: calc(100vh - 88px); overflow-y: auto; padding-right: 3px; }
-.outputs-column { min-width: 0; }
+.inputs-column { position: fixed; z-index: 2; top: 74px; bottom: 14px; left: max(16px, calc((100vw - 1440px) / 2)); width: 360px; overflow-y: auto; padding-right: 3px; }
+.outputs-column { grid-column: 2; min-width: 0; }
 .panel { margin-bottom: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); box-shadow: 0 3px 12px #18394b08; }
 .section-heading { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 16px; }
 .section-heading h2 { margin: 0 0 2px; font-size: 1.05rem; line-height: 1.3; }
@@ -173,6 +173,7 @@ td:last-child, th:last-child { text-align: right; }
 }
 @media (max-width: 900px) {
   .workspace { grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap: 10px; }
+  .inputs-column { width: 320px; }
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .result-columns { grid-template-columns: 1fr; gap: 12px; }
 }
@@ -187,7 +188,8 @@ td:last-child, th:last-child { text-align: right; }
   .button { padding: 7px 8px; font-size: .75rem; }
   .page-shell { width: min(100% - 20px, 1440px); padding-top: 10px; }
   .workspace { grid-template-columns: 1fr; }
-  .inputs-column { position: static; max-height: none; overflow: visible; }
+  .inputs-column { position: static; width: auto; max-height: none; overflow: visible; padding-right: 0; }
+  .outputs-column { grid-column: auto; }
   .inputs-column .input-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .inputs-column .panel { padding: 14px; }
   .help-dialog { width: calc(100vw - 16px); max-height: calc(100vh - 16px); border-radius: 10px; }
